@@ -175,8 +175,21 @@ final_cluster_dt4
 
 fwrite(final_cluster_dt4, file = "/home/data2/Projects/Fusion/fusiondb/metafusion_calls.tsv", sep = "\t")
 
-table(final_cluster_dt2$inferred_fusion_type)
-# CodingFusion         NoHeadGene        ReadThrough           SameGene    TruncatedCoding TruncatedNoncoding
-# 406425               1829              89365              13088              93820              69310
+table(final_cluster_dt4$inferred_fusion_type)
 
+final_cluster_dt4$Sample_ID[grepl("_", final_cluster_dt4$Sample_ID)]
+final_cluster_dt4$Sample_ID[grepl("_TARGET", final_cluster_dt4$Sample_ID)] |> unique()
 
+any(grepl("_", final_cluster_dt4[cohort == "CPTAC2"]$Sample_ID))
+sum(grepl("_", final_cluster_dt4[cohort == "CPTAC3"]$Sample_ID))
+grep("_", final_cluster_dt4[cohort == "CPTAC3"]$Sample_ID, value = TRUE)
+
+# target 数据存在几例数据合并了来自不同病人的数据，不合理，和彦昆讨论后过滤去除。
+final_cluster_dt4 = final_cluster_dt4[!grepl("_TARGET", final_cluster_dt4$Sample_ID), ]
+final_cluster_dt4[, Sample_ID := ifelse(
+  cohort == "CPTAC3" & grepl("_", Sample_ID),
+  gsub("_", "-", Sample_ID),
+  Sample_ID
+)]
+
+fwrite(final_cluster_dt4, file = "/home/data2/Projects/Fusion/fusiondb/metafusion_calls.tsv", sep = "\t")
