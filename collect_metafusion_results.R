@@ -193,3 +193,71 @@ final_cluster_dt4[, Sample_ID := ifelse(
 )]
 
 fwrite(final_cluster_dt4, file = "/home/data2/Projects/Fusion/fusiondb/metafusion_calls.tsv", sep = "\t")
+
+# Update cohort names for better mapping -------------------------------------
+final_dt = data.table::fread("/home/data2/Projects/Fusion/fusiondb/metafusion_calls.tsv")
+PHS000452_PD1 <- data.table::fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/PHS000452_PD1_info.tsv")$Run
+
+final_dt[Sample_ID %in% PHS000452_PD1]$cohort = "PHS000452_PD1"
+final_dt[cohort == "PHS000452"]$cohort == "PHS000452_CTLA4"
+
+COHORT_MAP <- c(
+  "CPTAC3" = "CPTAC-3",
+  "CPTAC2" = "CPTAC-2",
+  "EGAD00001006282" = "EGAD00001006282",
+  "HRA000524" = "HRA000524",
+  "PRJEB23709" = "PRJEB23709",
+  "PRJEB25780" = "PRJEB25780",
+  "PRJNA312948" = "PRJNA312948",
+  "PRJNA356761" = "PRJNA356761",
+  "PRJNA476140" = "PRJNA476140",
+  "PRJNA744780" = "PRJNA744780",
+  "PRJNA940989" = "PRJNA940989",
+  "IMmotion150" = "EGAD00001004183",
+  "OAK" = "EGAD00001008549",
+  "POPLAR" = "EGAD00001008548",
+  "IMmotion151" = "EGAD00001006619",
+  "IMvigor010" = "EGAD00001007575",
+  "PHS000452" = "PHS000452",
+  "PHS001038" = "PHS001038",
+  "PHS001427" = "PHS001427",
+  "PHS001464" = "PHS001464",
+  "PHS001493" = "PHS001493",
+  "PHS002176" = "PHS002176",
+  "PHS003284" = "PHS003284",
+  "PHS003316" = "PHS003316",
+  "PHS001919" = "PHS001919",
+  "IMvigor210" = "EGAD00001003977",
+  "PHS001994" = "PHS001994",
+  "PHS002270" = "PHS002270",
+  "PRJNA482620" = "PRJNA482620",
+  "PRJNA498500" = "PRJNA498500",
+  "PRJNA923698" = "PRJNA923698",
+  "PRJNA795330" = "PRJNA795330"
+)
+
+final_dt[, cohort := ifelse(cohort %in% names(COHORT_MAP), COHORT_MAP[cohort], cohort)]
+table(final_dt$cohort)
+sum(is.na(final_dt$cohort))
+sum(final_dt$cohort == "")
+final_dt$cohort[startsWith(final_dt$cohort, "TARGET")] |> unique()
+target = data.table::fread("/home/data2/Projects/Fusion/GeneFusionPipelines/data_cff/TARGET/TARGET_gdc_sample_sheet.2023-11-15.tsv")
+target
+table(target$`Project ID`)
+table(target$`Sample Type`)
+
+data.table::fwrite(final_dt, file = "/home/data2/Projects/Fusion/fusiondb/metafusion_calls_cohort_update.tsv", sep = "\t")
+
+# Generating data for app --------------------------------------------------
+system("rm -rf /home/data2/Projects/Fusion/fusiondb/fusion_calls_arrow")
+library(arrow)
+calls = data.table::fread("/home/data2/Projects/Fusion/fusiondb/metafusion_calls_cohort_update.tsv")
+
+table(calls$tools)
+table(calls$blocklist)
+table(calls$sample_type)
+
+calls |>
+  dplyr::group_by(cohort, inferred_fusion_type, sample_type) |>
+  write_dataset(file.path("/home/data2/Projects/Fusion/fusiondb", "fusion_calls_arrow"), format = "arrow")
+
