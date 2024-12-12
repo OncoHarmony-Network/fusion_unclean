@@ -199,7 +199,7 @@ final_dt = data.table::fread("/home/data2/Projects/Fusion/fusiondb/metafusion_ca
 PHS000452_PD1 <- data.table::fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/PHS000452_PD1_info.tsv")$Run
 
 final_dt[Sample_ID %in% PHS000452_PD1]$cohort = "PHS000452_PD1"
-final_dt[cohort == "PHS000452"]$cohort == "PHS000452_CTLA4"
+final_dt[cohort == "PHS000452"]$cohort = "PHS000452_CTLA4"
 
 COHORT_MAP <- c(
   "CPTAC3" = "CPTAC-3",
@@ -253,6 +253,7 @@ system("rm -rf /home/data2/Projects/Fusion/fusiondb/fusion_calls_arrow")
 library(arrow)
 calls = data.table::fread("/home/data2/Projects/Fusion/fusiondb/metafusion_calls_cohort_update.tsv")
 
+table(calls$cohort)
 table(calls$tools)
 table(calls$blocklist)
 table(calls$sample_type)
