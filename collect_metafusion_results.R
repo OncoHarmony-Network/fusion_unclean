@@ -240,6 +240,12 @@ final_dt[, cohort := ifelse(cohort %in% names(COHORT_MAP), COHORT_MAP[cohort], c
 table(final_dt$cohort)
 sum(is.na(final_dt$cohort))
 sum(final_dt$cohort == "")
+
+
+# update PRJNA795330 sample types
+final_dt[cohort == "PRJNA795330"]$sample_type = "Blood"
+table(final_dt$sample_type)
+
 final_dt$cohort[startsWith(final_dt$cohort, "TARGET")] |> unique()
 target = data.table::fread("/home/data2/Projects/Fusion/GeneFusionPipelines/data_cff/TARGET/TARGET_gdc_sample_sheet.2023-11-15.tsv")
 target
