@@ -12,12 +12,12 @@ TARGET_sheet <- fread("/home/data2/Projects/Fusion/unclean/TARGET_gdc_sample_she
 cohort_choose <- substr(TARGET_sheet$`Sample ID`, 1, 9) |> unique()
 #"TARGET-20" "TARGET-00" "TARGET-21" "TARGET-30"
 ##TARGET_xena_info预处理匹配
-#TODO:重合的是否重合
+
 TARGET_xena_info <- fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/TARGET_xena_info.tsv", sep = "\t") 
 matched_data1   <- TARGET_xena_info |>
-                   mutate(Sample_ID_short = str_extract(Sample_ID, "^[^-]+-[^-]+-[^-]+")) |>
-                   filter(grepl("^TARGET-(20|00|21|30)", Sample_ID_short))
-  
+  mutate(Sample_ID_short = str_extract(Sample_ID, "^[^-]+-[^-]+-[^-]+")) |>
+  filter(grepl("^TARGET-(20|00|21|30)", Sample_ID_short))
+
 ##TARGET_info预处理匹配
 TARGET_info <- fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/TARGET_info.tsv", sep = "\t") 
 replacement_table2 <- c(
@@ -42,19 +42,55 @@ TARGET_info <- TARGET_info %>%
 matched_data2 <- TARGET_info[matched2, ]
 
 matched_data2 <- TARGET_info |> 
-                 mutate(Sample_ID_short = str_extract(Sample_ID, "^[^-]+-[^-]+-[^-]+")) |>
-                 filter(grepl("^TARGET-(20|00|21|30)", Sample_ID_short))
-
+  mutate(Sample_ID_short = str_extract(Sample_ID, "^[^-]+-[^-]+-[^-]+")) |>
+  filter(grepl("^TARGET-(20|00|21|30)", Sample_ID_short))
+#TODO:TARGET_info$c(Age, Sex,OS_Time, OS_Status)和TARGET_xena_info$c(Age, Sex,OS_Time, OS_Status)都非N和""的值是否重合
+filter_valid <- function(x) {
+  !is.na(x) & x != "" & x != "--" & x != "Unknown"
+}
+# 筛选 TARGET_info 中的有效行
+TARGET_info_valid <- TARGET_info %>%
+  filter(filter_valid(Age) & filter_valid(OS_Time) & filter_valid(OS_Status) & filter_valid(Sex))
+# 筛选 TARGET_xena_info 中的有效行
+TARGET_xena_info_valid <- TARGET_xena_info %>%
+  filter(filter_valid(Age) & filter_valid(OS_Time) & filter_valid(OS_Status) & filter_valid(Sex))
+# 2. 根据 Sample_ID 合并两个数据框
+merged_data <- TARGET_info_valid %>%
+  inner_join(TARGET_xena_info_valid, by = "Sample_ID", suffix = c("_info", "_xena"))
+# 3. 检查合并后的数据框中有效值是否一致
+# 创建一个逻辑向量，检查每行的对应列是否一致
+is_consistent <- merged_data %>%
+  rowwise() %>%
+  mutate(
+    Age_consistent = Age_info == Age_xena,
+    Sex_consistent = Sex_info == Sex_xena,
+    OS_Time_consistent = OS_Time_info == OS_Time_xena,
+    OS_Status_consistent = OS_Status_info == OS_Status_xena
+  ) %>%
+  ungroup()
+# 4. 汇总结果
+summary <- is_consistent %>%
+  summarise(
+    Age_consistent = all(Age_consistent, na.rm = TRUE),
+    Sex_consistent = all(Sex_consistent, na.rm = TRUE),
+    OS_Time_consistent = all(OS_Time_consistent, na.rm = TRUE),
+    OS_Status_consistent = all(OS_Status_consistent, na.rm = TRUE),
+  )
+# > summary
+# A tibble: 1 × 4
+#  Age_consistent Sex_consistent OS_Time_consistent OS_Status_consistent
+#  <lgl>          <lgl>          <lgl>              <lgl>               
+#1 TRUE           TRUE           TRUE               TRUE 
 ## TARGET_sheet预处理
 matched_data3 <- TARGET_sheet |> 
-                 select(c(`Case ID`, `Sample ID`, `Sample Type`)) |>
-                 rename("Sample_ID_short" = `Case ID`,
-                        "Sample_ID" = `Sample ID`,
-                        "Sample_type"  =  `Sample Type`) |> 
-                 separate_rows(c(Sample_ID, Sample_type), sep = ",\\s*")|> 
-                 mutate(Sample_ID_short = str_extract(Sample_ID, "^[^-]+-[^-]+-[^-]+"))|> 
-                 unique()
-            
+  select(c(`Case ID`, `Sample ID`, `Sample Type`)) |>
+  rename("Sample_ID_short" = `Case ID`,
+         "Sample_ID" = `Sample ID`,
+         "Sample_type"  =  `Sample Type`) |> 
+  separate_rows(c(Sample_ID, Sample_type), sep = ",\\s*")|> 
+  mutate(Sample_ID_short = str_extract(Sample_ID, "^[^-]+-[^-]+-[^-]+"))|> 
+  unique()
+
 ## 使用TARGET_sheet更新Sample_ID,(原先也只是Patient_ID复制)并添加sample_type
 
 # Step 1: 找到匹配的 Sample_ID_short
@@ -76,10 +112,10 @@ for (col in cols_to_update) {
 
 # Step 4: 遍历每个匹配的 Sample_ID_short，并更新 matched_data3
 matched_data3[matched_data2, on = .(Sample_ID_short), 
-  (cols_to_update) := mget(paste0("i.", cols_to_update))]
+              (cols_to_update) := mget(paste0("i.", cols_to_update))]
 
 matched_data3 <- matched_data3 |>
-                 mutate(across(c(Age, OS_Time, OS_Status), ~ as.integer(.)))
+  mutate(across(c(Age, OS_Time, OS_Status), ~ as.integer(.)))
 ## 使用TARGET_xena_info对TARGET_info的Sex, Age, OS_Time, OS_Status列进行补充
 valid_data1 <- matched_data1 %>%
   filter(!is.na(Sex) & !is.na(Age) & !is.na(OS_Time) & !is.na(OS_Status))
@@ -108,10 +144,10 @@ matched_data4 <- matched_data4 %>%
     project_id %in% c("TARGET-ALL-P3", "TARGET-ALL-P1", "TARGET-ALL-P2") ~ "TARGET-ALL",
     TRUE ~ cohort
   )) %>%
-    mutate(cohort = case_when(
-      project_id %in% c("TARGET-ALL-P3") ~ "TARGET-ALAL",
-      TRUE ~ cohort
-    ))
+  mutate(cohort = case_when(
+    project_id %in% c("TARGET-ALL-P3") ~ "TARGET-ALAL",
+    TRUE ~ cohort
+  ))
 
 ##拆出细胞系
 
@@ -172,7 +208,9 @@ matched_data4 <- matched_data4 |>
   select(all_of(new_order))
 
 matched_data5 <- matched_data4 |>
-                 mutate(Sample_ID_short = Sample_ID)
+  mutate(Sample_ID_short = Sample_ID)
+
+detected_id_TARGET <- matched_data5$Sample_ID_short
 ##保存info
 cohorts <- unique(matched_data5$cohort)
 file_name1 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/TARGET")
@@ -181,21 +219,21 @@ if (!dir.exists(file_name1)) {
   dir.create(file_name1, recursive = TRUE)
 } 
 for (cohort1 in cohorts) {
-cohort_data <- subset(matched_data5, cohort == cohort1)
-name <- gsub("-", "_", cohort1)
-file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/TARGET/", name ,"_info.tsv")
-fwrite(cohort_data , file = file_name, sep = "\t")  
+  cohort_data <- subset(matched_data5, cohort == cohort1)
+  name <- gsub("-", "_", cohort1)
+  file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/TARGET/", name ,"_info.tsv")
+  fwrite(cohort_data , file = file_name, sep = "\t")  
 }
 #其km时删掉这种数据？
 #TARGET-30-PAPEAV-01A, TARGET-30-PAPTFZ-01A
 ##Gene
 metafusion1 <- metafusion |> 
-               mutate(
-                     cohort = case_when(
-                     Sample_ID %in% matched_data5$Sample_ID_short ~ matched_data5$cohort[match(Sample_ID, matched_data5$Sample_ID_short)],
-                     TRUE ~ cohort
-                                       )
-                    )  
+  mutate(
+    cohort = case_when(
+      Sample_ID %in% matched_data5$Sample_ID_short ~ matched_data5$cohort[match(Sample_ID, matched_data5$Sample_ID_short)],
+      TRUE ~ cohort
+    )
+  )  
 
 
 ##TME
@@ -217,25 +255,25 @@ TARGET_TME <- rbind(NBL_TME,AML_TME)
 #[1] 178
 #讨论后决定馆子取样靠后面会稳定点, 比如TARGET-00-BM3897-14A-02R和TARGET-00-BM3897-14A-01R取01R
 TARGET_TME <- TARGET_TME |>
-              mutate( prefixes = str_extract(ID, ".*(?=-[^-]+$)"),  
-                      suffixes = str_extract(ID, "[^-]+$"),
-                      second_char = str_sub(suffixes, 2, 2),
-                      second_char = as.integer(second_char))
+  mutate( prefixes = str_extract(ID, ".*(?=-[^-]+$)"),  
+          suffixes = str_extract(ID, "[^-]+$"),
+          second_char = str_sub(suffixes, 2, 2),
+          second_char = as.integer(second_char))
 
 result_TME <- TARGET_TME |>
-          group_by(prefixes) |>
-          slice(which.max(second_char)) |>
-          ungroup() |>
-          rename(Sample_ID_short = prefixes) |>
-          select(-c("suffixes", "second_char")) |>
-          unique() 
-          
+  group_by(prefixes) |>
+  slice(which.max(second_char)) |>
+  ungroup() |>
+  rename(Sample_ID_short = prefixes) |>
+  select(-c("suffixes", "second_char")) |>
+  unique() 
+
 #deleted_rows <- TARGET_TME |>
 #  anti_join(result, by = c("ID", "prefixes", "suffixes", "second_char"))
 # 删除数据框里里面没有TARGET-30-PAPTFZ-01A-01R-TARGET-30-PAPEAV-01A-01R这种情况
 #找到特殊的Sample_id号匹配
 target_NORMAL_sample_id_short <- matched_data4 |> filter(cohort == "TARGET-NORMAL")  
-NORMAL_id <- target_NORMAL_sample_id_short$Sample_ID |> unique()
+target_NORMAL_id <- target_NORMAL_sample_id_short$Sample_ID |> unique()
 
 target_GNB_sample_id_short <- matched_data4 |> filter(cohort == "TARGET-GNB") 
 GNB_id <- target_GNB_sample_id_short$Sample_ID|> unique()
@@ -246,7 +284,7 @@ CELL_id <- target_CELL_sample_id_short$Sample_ID|> unique()
 result_TME <- result_TME |> 
   mutate(cohort = Project_id) |>
   mutate(cohort = case_when(
-    Sample_ID_short %in% NORMAL_id ~ "TARGET-NORMAL",
+    Sample_ID_short %in% target_NORMAL_id ~ "TARGET-NORMAL",
     TRUE ~ cohort  
   )) |>
   mutate(cohort = case_when(
@@ -256,7 +294,8 @@ result_TME <- result_TME |>
   mutate(cohort = case_when(
     Sample_ID_short %in% GNB_id ~ "TARGET-GNB",
     TRUE ~ cohort  
-  )) 
+  )) |>
+  filter(Sample_ID_short %in% detected_id_TARGET)   #有些样本没有检出fusion
 
 cohorts_TME <- unique(result_TME$cohort)
 file_name3 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TARGET/")
@@ -265,13 +304,13 @@ if (!dir.exists(file_name3)) {
   dir.create(file_name3, recursive = TRUE)
 } 
 for (cohort1 in cohorts_TME) {
-cohort_data <- subset(result_TME, cohort == cohort1) |> select(-cohort)
-file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TARGET/", cohort1 ,"_TME.tsv.gz")
-write.table(cohort_data, 
-            file = gzfile(file_name), 
-            sep = "\t", 
-            row.names = FALSE, 
-            quote = FALSE) 
+  cohort_data <- subset(result_TME, cohort == cohort1) |> select(-cohort)
+  file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TARGET/", cohort1 ,"_TME.tsv.gz")
+  write.table(cohort_data, 
+              file = gzfile(file_name), 
+              sep = "\t", 
+              row.names = FALSE, 
+              quote = FALSE) 
 }  
 
 ##IOBR
@@ -281,18 +320,18 @@ AML_IOBR_signature <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/TARGET-AM
 TARGET_IOBR <- rbind(NBL_IOBR_signature,AML_IOBR_signature)
 
 TARGET_IOBR <- TARGET_IOBR |>
-               mutate(prefixes = str_extract(ID, ".*(?=-[^-]+$)"),  
-                      suffixes = str_extract(ID, "[^-]+$"),
-                      second_char = str_sub(suffixes, 2, 2),
-                      second_char = as.integer(second_char))
+  mutate(prefixes = str_extract(ID, ".*(?=-[^-]+$)"),  
+         suffixes = str_extract(ID, "[^-]+$"),
+         second_char = str_sub(suffixes, 2, 2),
+         second_char = as.integer(second_char))
 
 result_IOBR <- TARGET_IOBR |>
-               group_by(prefixes) |>
-               slice(which.max(second_char)) |>
-               ungroup() |>
-               rename(Sample_ID_short = prefixes) |>
-               select(-c("suffixes", "second_char")) |>
-               unique() 
+  group_by(prefixes) |>
+  slice(which.max(second_char)) |>
+  ungroup() |>
+  rename(Sample_ID_short = prefixes) |>
+  select(-c("suffixes", "second_char")) |>
+  unique() 
 
 target_NORMAL_sample_id_short <- matched_data4 |> filter(cohort == "TARGET-NORMAL")  
 NORMAL_id <- target_NORMAL_sample_id_short$Sample_ID |> unique()
@@ -316,7 +355,8 @@ result_IOBR <- result_IOBR |>
   mutate(cohort = case_when(
     Sample_ID_short %in% GNB_id ~ "TARGET-GNB",
     TRUE ~ cohort  
-  )) 
+  )) |>
+  filter(Sample_ID_short %in% detected_id_TARGET)  #有些样本没有检出fusion
 
 cohorts_IOBR <- unique(result_IOBR$cohort)
 file_name2 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TARGET/")
@@ -325,13 +365,13 @@ if (!dir.exists(file_name2)) {
   dir.create(file_name2, recursive = TRUE)
 } 
 for (cohort1 in cohorts_IOBR) {
-cohort_data <- subset(result_IOBR, cohort == cohort1) |> select(-cohort)
-file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TARGET/", cohort1 ,"_IOBR_signature.tsv.gz")
-write.table(cohort_data, 
-            file = gzfile(file_name), 
-            sep = "\t", 
-            row.names = FALSE, 
-            quote = FALSE) 
+  cohort_data <- subset(result_IOBR, cohort == cohort1) |> select(-cohort)
+  file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TARGET/", cohort1 ,"_IOBR_signature.tsv.gz")
+  write.table(cohort_data, 
+              file = gzfile(file_name), 
+              sep = "\t", 
+              row.names = FALSE, 
+              quote = FALSE) 
 }  
 
 #CPTAC
@@ -354,14 +394,15 @@ if (all(same_chars)) {
 }
 #TRUE就是一个患者多个样本
 ##CPTAC_sheet预处理
-matched_CPTAC <- CPTAC_sheet |> 
-                 select(c(`Case ID`, `Sample ID`, `Sample Type`)) |>
-                 rename("Sample_ID_short" = `Case ID`,
-                        "Sample_ID" = `Sample ID`,
-                        "Sample_type"  =  `Sample Type`) |> 
-                 separate_rows(Sample_ID_short, sep = ",\\s*")|> 
-                 unique() 
- 
+matched_CPTAC1 <- CPTAC_sheet |> 
+  select(c(`Case ID`, `Sample ID`, `Sample Type`, `Project ID`)) |>
+  rename("Sample_ID_short" = `Case ID`,
+         "Sample_ID" = `Sample ID`,
+         "Sample_type"  =  `Sample Type`,
+         "project_id" = `Project ID`) |> 
+  separate_rows(Sample_ID_short, sep = ",\\s*")|> 
+  unique() 
+
 #matched_CPTAC$Sample_type |> unique()
 #[1] "Primary Tumor"                                                            
 #[2] "Solid Tissue Normal"                                                      
@@ -374,7 +415,7 @@ matched_CPTAC <- CPTAC_sheet |>
 #"Solid Tissue Normal", "Primary Tumor"俩种，所以直接"Primary Tumor" , "Solid Tissue Normal"
 ##CPTAC_info预处理
 CPTAC_info <- fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/CPTAC_info.tsv", sep = "\t")
- cptac_replacement_table2 <- c(
+cptac_replacement_table2 <- c(
   "BRCA" = "CPTAC-BRCA",
   "CCRCC" = "CPTAC-KIRC",
   "COAD" =  "CPTAC-COAD",
@@ -387,19 +428,7 @@ CPTAC_info <- fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/CPTAC_info.ts
   "UCEC" = "CPTAC-UCEC",
   "GTEX-Brain" = "CPTAC-GTEX-Brain"
 )     
- cptac_replacement_table3 <- c(
-  "BRCA" = "CPTAC-BRCA",
-  "CCRCC" = "CPTAC-CCRCC",
-  "COAD" =  "CPTAC-COAD",
-  "GBM" = "CPTAC-GBM",
-  "HGSC" = "CPTAC-HGSC",
-  "HNSCC" = "CPTAC-HNSCC",
-  "LSCC" = "CPTAC-LUSC" ,
-  "LUAD" = "CPTAC-LUAD",
-  "PDAC" = "CPTAC-PDAC",
-  "UCEC" = "CPTAC-UCEC",
-  "GTEX-Brain" = "CPTAC-GTEX-Brain"
-) 
+
 matched_CPTAC_info <- CPTAC_info$Cancer %in% names(cptac_replacement_table2)
 CPTAC_info <- CPTAC_info %>%
   mutate(cohort = case_when(
@@ -419,18 +448,20 @@ matched_ids <- intersect(CPTACinfo$Patient_ID, matched_CPTAC$Sample_ID_short)
 #setdiff(matched_CPTAC$Sample_ID_short,matched_ids)
 #character(0)
 
-matched_CPTAC <- left_join(matched_CPTAC, CPTACinfo, by = c("Sample_ID_short" = "Patient_ID")) |>
-                 rename("Patient_ID" = "Sample_ID_short") 
+matched_CPTAC <- matched_CPTAC1 |>
+                left_join(CPTACinfo, by = c("Sample_ID_short" = "Patient_ID")) |>
+                rename("Patient_ID" = "Sample_ID_short") 
 ##拆出CPTAC-NORMAL                 
-              
 matched_CPTAC <- matched_CPTAC |>
-                 mutate(cohort = case_when(
-                 grepl("Solid Tissue Normal", Sample_type) ~ "CPTAC-NORMAL",
-                 TRUE ~ cohort  
-                 )) |>
-                 mutate(Sample_ID_short = str_replace_all(Sample_ID, ", ", "-"))
-
-  
+  mutate(cohort = case_when(
+    grepl("Solid Tissue Normal", Sample_type) ~ "CPTAC-NORMAL",
+    TRUE ~ cohort  
+  )) |>
+  mutate(Sample_ID_short = str_replace_all(Sample_ID, ", ", "-"))
+CPTAC_NORMAL1 <- matched_CPTAC |>
+                   filter(grepl("Solid Tissue Normal", Sample_type))
+CPTAC_NORMAL_id <- CPTAC_NORMAL1$Sample_ID_short |> unique()
+detected_id_CPTAC <- matched_CPTAC$Sample_ID_short |> unique()
 ##保存info
 cohorts <- unique(matched_CPTAC$cohort)
 file_name1 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/CPTAC")
@@ -439,12 +470,11 @@ if (!dir.exists(file_name1)) {
   dir.create(file_name1, recursive = TRUE)
 } 
 for (cohort1 in cohorts) {
-cohort_data <- subset(matched_CPTAC, cohort == cohort1)
-name <- gsub("-", "_", cohort1)
-file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/CPTAC/", name ,"_info.tsv")
-fwrite(cohort_data , file = file_name, sep = "\t")  
+  cohort_data <- subset(matched_CPTAC, cohort == cohort1)
+  name <- gsub("-", "_", cohort1)
+  file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/CPTAC/", name ,"_info.tsv")
+  fwrite(cohort_data , file = file_name, sep = "\t")  
 }
-##Gene
 ##Gene
 metafusion1 <- metafusion1 |> 
   mutate(
@@ -492,9 +522,9 @@ matched_last <- matched_last %>%
   ungroup()  
 #情况1
 matched_lastf1 <- matched_last %>%
-                  rename(Sample_ID_short = prefixes)  %>%
-                  select(-suffixes)                   %>%
-                  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short))
+  rename(Sample_ID_short = prefixes)  %>%
+  select(-suffixes)                   %>%
+  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short))
 matched_first <- rbind(matched_first, matched_lastf1)
 #非情况1
 matched_last1 <- matched_last %>%
@@ -502,29 +532,29 @@ matched_last1 <- matched_last %>%
 
 ##第二种情况能匹配上只是前面多了个X，（X1104806和1104806，X9f905736-f662-41d6-b3ac-16758d和9f905736-f662-41d6-b3ac-16758d）
 matched_last1  <- matched_last1 %>%
-                  mutate(prefixe_name = str_remove(ID, "^X"))  
+  mutate(prefixe_name = str_remove(ID, "^X"))  
 #情况2
 matched_lastf2 <- matched_last1 %>%
-                  rename(Sample_ID_short = prefixe_name) %>%
-                  select(-c(prefixes,suffixes)) %>%
-                  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short)) 
+  rename(Sample_ID_short = prefixe_name) %>%
+  select(-c(prefixes,suffixes)) %>%
+  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short)) 
 matched_first <- rbind(matched_first, matched_lastf2)
 #非情况2
 matched_last2 <- matched_last1 %>%
-                 filter(!(prefixe_name %in% matched_CPTAC$Sample_ID_short))
+  filter(!(prefixe_name %in% matched_CPTAC$Sample_ID_short))
 
 ##第三种情况其实就是一二混合（X161317f3-1a39-438e-af45-cd2502_D7和161317f3-1a39-438e-af45-cd2502）
 matched_last2  <- matched_last2 %>%
-                  mutate(prefixe_name = str_remove(prefixes, "^X")) 
+  mutate(prefixe_name = str_remove(prefixes, "^X")) 
 #情况3    
 matched_lastf3 <- matched_last2 %>%
-                  rename(Sample_ID_short = prefixe_name) %>%
-                  select(-c(prefixes,suffixes)) %>%
-                  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short))              
+  rename(Sample_ID_short = prefixe_name) %>%
+  select(-c(prefixes,suffixes)) %>%
+  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short))              
 matched_first <- rbind(matched_first, matched_lastf3)
 #非情况3
 matched_last3 <- matched_last2 %>%
-                 filter(!(prefixe_name %in% matched_CPTAC$Sample_ID_short))
+  filter(!(prefixe_name %in% matched_CPTAC$Sample_ID_short))
 #手动排除后发现没有出现C3L-02662-05-C3L-02662-03-C3L-02662-02颠倒顺序情况，TME的info对照列筛选完成
 #nrow(matched_first)
 #[1] 2558
@@ -532,10 +562,11 @@ matched_last3 <- matched_last2 %>%
 #[1] 2558
 ##匹配
 #根据matched_first$Sample_ID_short 和 matched_CPTAC$Sample_ID_short的匹配，给matched_first添加新列cohort,值为matched_CPTAC$cohort,
-cohort_data   <- matched_CPTAC %>% select(Sample_ID_short, cohort)
+cohort_data   <- matched_CPTAC %>% select(Sample_ID_short, cohort)                    
 matched_first <- matched_first %>%
-                 left_join(cohort_data, by = "Sample_ID_short")
-
+  left_join(cohort_data, by = "Sample_ID_short")  |>
+  filter(Sample_ID_short %in% detected_id_CPTAC) |> #有些样本没有检出fusion
+  unique()
 cohorts_TME <- unique(matched_first$cohort)
 file_name3 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/CPTAC/")
 
@@ -543,15 +574,15 @@ if (!dir.exists(file_name3)) {
   dir.create(file_name3, recursive = TRUE)
 } 
 for (cohort1 in cohorts_TME) {
-cohort_data <- subset(matched_first, cohort == cohort1) |> select(-cohort)
-file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/CPTAC/", cohort1 ,"_TME.tsv.gz")
-write.table(cohort_data, 
-            file = gzfile(file_name), 
-            sep = "\t", 
-            row.names = FALSE, 
-            quote = FALSE) 
+  cohort_data <- subset(matched_first, cohort == cohort1) |> select(-cohort)
+  file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/CPTAC/", cohort1 ,"_TME.tsv.gz")
+  write.table(cohort_data, 
+              file = gzfile(file_name), 
+              sep = "\t", 
+              row.names = FALSE, 
+              quote = FALSE) 
 }  
-               
+
 #匹配链metafusion$Sample_ID == info$Sample_ID_short == iobr$Sample_ID_short
 #IOBR
 CPTAC2_Signature <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/CPTAC-2_IOBR_signature.tsv.gz", sep = "\t") |> mutate(Project_id = "CPTAC2")
@@ -592,9 +623,9 @@ matched_last <- matched_last %>%
   ungroup()  
 #情况1
 matched_lastf1 <- matched_last %>%
-                  rename(Sample_ID_short = prefixes)  %>%
-                  select(-suffixes)                   %>%
-                  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short))
+  rename(Sample_ID_short = prefixes)  %>%
+  select(-suffixes)                   %>%
+  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short))
 matched_first <- rbind(matched_first, matched_lastf1)
 #非情况1
 matched_last1 <- matched_last %>%
@@ -602,29 +633,29 @@ matched_last1 <- matched_last %>%
 
 ##第二种情况能匹配上只是前面多了个X，（X1104806和1104806，X9f905736-f662-41d6-b3ac-16758d和9f905736-f662-41d6-b3ac-16758d）
 matched_last1  <- matched_last1 %>%
-                  mutate(prefixe_name = str_remove(ID, "^X"))  
+  mutate(prefixe_name = str_remove(ID, "^X"))  
 #情况2
 matched_lastf2 <- matched_last1 %>%
-                  rename(Sample_ID_short = prefixe_name) %>%
-                  select(-c(prefixes,suffixes)) %>%
-                  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short)) 
+  rename(Sample_ID_short = prefixe_name) %>%
+  select(-c(prefixes,suffixes)) %>%
+  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short)) 
 matched_first <- rbind(matched_first, matched_lastf2)
 #非情况2
 matched_last2 <- matched_last1 %>%
-                 filter(!(prefixe_name %in% matched_CPTAC$Sample_ID_short))
+  filter(!(prefixe_name %in% matched_CPTAC$Sample_ID_short))
 
 ##第三种情况其实就是一二混合（X161317f3-1a39-438e-af45-cd2502_D7和161317f3-1a39-438e-af45-cd2502）
 matched_last2  <- matched_last2 %>%
-                  mutate(prefixe_name = str_remove(prefixes, "^X")) 
+  mutate(prefixe_name = str_remove(prefixes, "^X")) 
 #情况3    
 matched_lastf3 <- matched_last2 %>%
-                  rename(Sample_ID_short = prefixe_name) %>%
-                  select(-c(prefixes,suffixes)) %>%
-                  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short))              
+  rename(Sample_ID_short = prefixe_name) %>%
+  select(-c(prefixes,suffixes)) %>%
+  filter((Sample_ID_short %in% matched_CPTAC$Sample_ID_short))              
 matched_first <- rbind(matched_first, matched_lastf3)
 #非情况3
 matched_last3 <- matched_last2 %>%
-                 filter(!(prefixe_name %in% matched_CPTAC$Sample_ID_short))
+  filter(!(prefixe_name %in% matched_CPTAC$Sample_ID_short))
 #手动排除后发现没有出现C3L-02662-05-C3L-02662-03-C3L-02662-02颠倒顺序情况，TME的info对照列筛选完成
 #nrow(matched_first)
 #[1] 2558
@@ -634,7 +665,9 @@ matched_last3 <- matched_last2 %>%
 #根据matched_first$Sample_ID_short 和 matched_CPTAC$Sample_ID_short的匹配，给matched_first添加新列cohort,值为matched_CPTAC$cohort,
 cohort_data   <- matched_CPTAC %>% select(Sample_ID_short, cohort)
 matched_first <- matched_first %>%
-                 left_join(cohort_data, by = "Sample_ID_short")
+  left_join(cohort_data, by = "Sample_ID_short") |>
+  filter(Sample_ID_short %in% detected_id_CPTAC) |> #有些样本没有检出fusion
+  unique()
 
 cohorts_IOBR <- unique(matched_first$cohort)
 file_name2 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/CPTAC/")
@@ -643,56 +676,74 @@ if (!dir.exists(file_name2)) {
   dir.create(file_name2, recursive = TRUE)
 } 
 for (cohort1 in cohorts_IOBR) {
-cohort_data <- subset(matched_first, cohort == cohort1) |> select(-cohort)
-file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/CPTAC/", cohort1 ,"_IOBR_signature.tsv.gz")
-write.table(cohort_data, 
-            file = gzfile(file_name), 
-            sep = "\t", 
-            row.names = FALSE, 
-            quote = FALSE) 
+  cohort_data <- subset(matched_first, cohort == cohort1) |> select(-cohort)
+  file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/CPTAC/", cohort1 ,"_IOBR_signature.tsv.gz")
+  write.table(cohort_data, 
+              file = gzfile(file_name), 
+              sep = "\t", 
+              row.names = FALSE, 
+              quote = FALSE) 
 }  
 
 #TCGA 只用拆info
 
 TCGA_info <- fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/TCGA_info.tsv", sep = "\t")
-#TCGA_sheet <- fread("/home/data2/Projects/Fusion/unclean/TCGA_sample_sheet.2024-05-14.tsv", sep = "\t")
+TCGA_sheet <- fread("/home/data2/Projects/Fusion/unclean/TCGA_sample_sheet.2024-05-14.tsv", sep = "\t") |> 
+              select(c(`Sample ID`, `Sample Type`,`Project ID`)) 
+colnames(TCGA_sheet) <- c("Sample_ID", "Sample_type","Project_id")
+TCGA_sheet <- TCGA_sheet  |>
+              mutate(Sample_ID = substr(Sample_ID, 1, nchar(Sample_ID) - 1)) |> 
+              unique()
+
 TCGA_info <- TCGA_info |>
-             mutate(cohort = paste0("TCGA-",Cancer),
-                    Sample_ID_short = Sample_ID
-             )
-TCGA_NORMAL <- metafusion |> 
-              filter(sample_type == "Normal" & startsWith(cohort, "TCGA")) 
-            
-NORMAL_id <- TCGA_NORMAL$Sample_ID |> unique()
+  mutate(cohort = paste0("TCGA-",Cancer) )
  
 
-TCGA_info <- TCGA_info |> 
-             mutate(cohort = case_when(
-             Sample_ID_short %in% NORMAL_id ~ "TCGA-NORMAL",
-             TRUE ~ cohort))    
+TCGA_info1 <- TCGA_sheet |>
+  left_join(TCGA_info, by = c("Sample_ID" = "Sample_ID")) |>
+  mutate(
+    cohort = Project_id,
+    Sample_ID_short = Sample_ID,
+    Patient_ID = substr(Sample_ID, 1, nchar(Sample_ID) - 3),  
+    Cancer = gsub("TCGA-", "", Project_id)  
+  )
+  
 
-cohorts <- unique(TCGA_info$cohort)
+TCGA_NORMAL <- TCGA_info1 |> 
+               filter(Sample_type == "Solid Tissue Normal") 
+
+NORMAL_id <- TCGA_NORMAL$Sample_ID |> unique()
+
+detected_id_TCGA <- TCGA_info1$Sample_ID |> unique()
+
+TCGA_info1 <- TCGA_info1 |> 
+  mutate(
+    Project_id = cohort,
+    cohort = case_when(
+      Sample_ID_short %in% NORMAL_id ~ "TCGA-NORMAL",
+      TRUE ~ cohort)) 
+cohorts <- unique(TCGA_info1$cohort)
+
 file_name1 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/TCGA")
 
 if (!dir.exists(file_name1)) {
   dir.create(file_name1, recursive = TRUE)
 } 
 for (cohort1 in cohorts) {
-cohort_data <- subset(TCGA_info, cohort == cohort1)
-name <- gsub("-", "_", cohort1)
-file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/TCGA/", name ,"_info.tsv")
-fwrite(cohort_data , file = file_name, sep = "\t")  
+  cohort_data <- subset(TCGA_info1, cohort == cohort1)
+  name <- gsub("-", "_", cohort1)
+  file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/TCGA/", name ,"_info.tsv")
+  fwrite(cohort_data , file = file_name, sep = "\t")  
 }  
 #Gene
 metafusion1 <- metafusion1 |> 
-               mutate(
-                     cohort = case_when(
-                     Sample_ID %in% TCGA_info$Sample_ID_short ~ TCGA_info$cohort[match(Sample_ID, TCGA_info$Sample_ID_short)],
-                     TRUE ~ cohort
-                                       )
-                    ) 
-fwrite(metafusion1, file = "/home/data2/Projects/Fusion/unclean/gdc_split/fusion/metafusion_calls_matched.tsv", sep = "\t")
-      
+  mutate(
+    cohort = case_when(
+      Sample_ID %in% TCGA_info$Sample_ID_short ~ TCGA_info$cohort[match(Sample_ID, TCGA_info$Sample_ID_short)],
+      TRUE ~ cohort
+    )
+  ) 
+
 #IOBR
 folder_path <- "/home/data2/Projects/Fusion/fusiondb/IOBR"
 
@@ -727,18 +778,19 @@ result_data <- combined_data |>
     second_chars = str_extract(suffixes, "[0-9]+"),
     second_chars = as.integer(second_chars))
 result_IOBR <- result_data  |>
-               group_by(prefixes) |>
-               slice(which.max(second_chars)) |>
-               ungroup() |>
-               rename(Sample_ID_short = prefixes) |>
-               mutate(cohort = Project_id,
-                      Sample_ID_short = substr(Sample_ID_short, 1, nchar(Sample_ID_short) - 1),
-                      cohort = case_when(Sample_ID_short %in% NORMAL_id ~ "TCGA-NORMAL",
-                                         TRUE ~ cohort)
-                      )  |>
-               select(-c("suffixes", "second_chars")) |>
-               unique() 
-               
+  group_by(prefixes) |>
+  slice(which.max(second_chars)) |>
+  ungroup() |>
+  rename(Sample_ID_short = prefixes) |>
+  mutate(cohort = Project_id,
+         Sample_ID_short = substr(Sample_ID_short, 1, nchar(Sample_ID_short) - 1),
+         cohort = case_when(Sample_ID_short %in% NORMAL_id ~ "TCGA-NORMAL",
+                            TRUE ~ cohort)
+  ) |>
+  filter(Sample_ID_short %in% detected_id_TCGA)  |> #有些样本没有检出fusion
+  select(-c("suffixes", "second_chars")) |>
+  unique() 
+
 cohorts_IOBR <- unique(result_IOBR$cohort)
 file_name2 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TCGA/")
 
@@ -746,13 +798,13 @@ if (!dir.exists(file_name2)) {
   dir.create(file_name2, recursive = TRUE)
 } 
 for (cohort1 in cohorts_IOBR) {
-cohort_data <- subset(result_IOBR, cohort == cohort1) |> select(-cohort)
-file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TCGA/", cohort1 ,"_IOBR_signature.tsv.gz")
-write.table(cohort_data, 
-            file = gzfile(file_name), 
-            sep = "\t", 
-            row.names = FALSE, 
-            quote = FALSE) 
+  cohort_data <- subset(result_IOBR, cohort == cohort1) |> select(-cohort)
+  file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TCGA/", cohort1 ,"_IOBR_signature.tsv.gz")
+  write.table(cohort_data, 
+              file = gzfile(file_name), 
+              sep = "\t", 
+              row.names = FALSE, 
+              quote = FALSE) 
 }  
 
 #TME
@@ -790,18 +842,19 @@ result_data1 <- combined_data1 |>
     second_chars = str_extract(suffixes, "[0-9]+"),
     second_chars = as.integer(second_chars))
 result_TME <- result_data1  |>
-               group_by(prefixes) |>
-               slice(which.max(second_chars)) |>
-               ungroup() |>
-               rename(Sample_ID_short = prefixes) |>
-               mutate(cohort = Project_id,
-                      Sample_ID_short = substr(Sample_ID_short, 1, nchar(Sample_ID_short) - 1),
-                      cohort = case_when(Sample_ID_short %in% NORMAL_id ~ "TCGA-NORMAL",
-                                         TRUE ~ cohort)
-                      )  |>
-               select(-c("suffixes", "second_chars")) |>
-               unique() 
-               
+  group_by(prefixes) |>
+  slice(which.max(second_chars)) |>
+  ungroup() |>
+  rename(Sample_ID_short = prefixes) |>
+  mutate(cohort = Project_id,
+         Sample_ID_short = substr(Sample_ID_short, 1, nchar(Sample_ID_short) - 1),
+         cohort = case_when(Sample_ID_short %in% NORMAL_id ~ "TCGA-NORMAL",
+                            TRUE ~ cohort)
+  )|>
+  filter(Sample_ID_short %in% detected_id_TCGA)  |> #有些样本没有检出fusion
+  select(-c("suffixes", "second_chars")) |>
+  unique() 
+
 cohorts_TME <- unique(result_TME$cohort)
 file_name2 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TCGA/")
 
@@ -809,11 +862,253 @@ if (!dir.exists(file_name2)) {
   dir.create(file_name2, recursive = TRUE)
 } 
 for (cohort1 in cohorts_TME) {
-cohort_data <- subset(result_TME, cohort == cohort1) |> select(-cohort)
-file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TCGA/", cohort1 ,"_TME.tsv.gz")
-write.table(cohort_data, 
-            file = gzfile(file_name), 
+  cohort_data <- subset(result_TME, cohort == cohort1) |> select(-cohort)
+  file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TCGA/", cohort1 ,"_TME.tsv.gz")
+  write.table(cohort_data, 
+              file = gzfile(file_name), 
+              sep = "\t", 
+              row.names = FALSE, 
+              quote = FALSE) 
+}  
+#metafusion_all
+combined_id <- c(NORMAL_id, target_NORMAL_id, CPTAC_NORMAL_id)
+
+meta_normal <- metafusion1|>
+               filter(Sample_ID %in% combined_id)
+#> unique(meta_normal$sample_type)
+#[1] "Normal"
+#nrow(meta_normal)
+#[1] 101141
+#meta_new |>
+#filter(sample_type == "Normal" ) |>
+#nrow()
+#[1] 114007
+
+#meta_normal1 <-    meta_new |>
+#                   filter(sample_type != "Normal" &  Sample_ID %in% combined_id) 
+#> > meta_normal1$sample_type |> unique()
+#[1] "Tumor" past not point right ,they should be normal sample
+meta_new  <- metafusion1 |>
+                    mutate(
+                      sample_type = ifelse(
+                        sample_type != "Normal" & Sample_ID %in% combined_id,
+                        "Normal",
+                        sample_type
+                      )
+                    )
+cp_file_name <- "/home/data2/Projects/Fusion/unclean/gdc_split/fusion/metafusion_calls_matched.tsv"
+write.table(meta_new, 
+                      file = cp_file_name, 
+                      sep = "\t", 
+                      row.names = FALSE, 
+                      quote = FALSE) 
+#TCGA Fix :because of TCGA_sheet <- TCGA_sheet  |>
+#              mutate(Sample_ID = str_sub(Sample_ID, 1, -2)) wrong
+#should use mutate(Sample_ID = substr(Sample_ID, 1, nchar(Sample_ID) - 1))
+#CPTAC fread bug? fwrite bug? fread bug.. use cp_file_name <- "/home/data2/Projects/Fusion/unclean/gdc_split/fusion/metafusion_calls_matched.tsv"
+#meta_new <- fread(cp_file_name , sep = "\t")
+
+
+
+#Not in Red Herrings
+#metafusion
+cp_file_name <- "/home/data2/Projects/Fusion/unclean/gdc_split/fusion/metafusion_calls_matched.tsv"
+meta_new <- fread(cp_file_name , sep = "\t")
+Herring_Supplement <- meta_new |>
+                      filter(sample_type == "Normal" & blocklist == "FALSE") #blocklist mean false positives
+#> nrow(Herring_Supplement)
+#[1] 109968
+Herring_Supplement1 <- Herring_Supplement |>
+                      filter(cancer_db_hits == "") 
+#nrow(Herring_Supplement1)
+#[1] 102449
+Herring_Supplement2 <- Herring_Supplement |>
+  filter(grepl("GTEx_recurrent_StarF2019", cancer_db_hits) |
+    grepl("DGD_PARALOGS", cancer_db_hits) |
+  grepl("HGNC_GENEFAM", cancer_db_hits) |
+  grepl("BodyMap", cancer_db_hits) |
+  grepl("Greger_Normal", cancer_db_hits) |
+  grepl("ConjoinG", cancer_db_hits) |
+  grepl("Babiceanu_Normal", cancer_db_hits))
+#nrow(Herring_Supplement2)
+#[1] 81
+Herring_Supplement3 <-  Herring_Supplement |>
+  filter(!grepl("GTEx_recurrent_StarF2019", cancer_db_hits) &
+    !grepl("DGD_PARALOGS", cancer_db_hits) &
+  !grepl("HGNC_GENEFAM", cancer_db_hits) &
+  !grepl("BodyMap", cancer_db_hits) &
+  !grepl("Greger_Normal", cancer_db_hits) &
+  !grepl("ConjoinG", cancer_db_hits) &
+  !grepl("Babiceanu_Normal", cancer_db_hits) & cancer_db_hits != "")
+#nrow(Herring_Supplement3)
+#[1] 7438
+#  meta_new |>
+#  filter(sample_type == "Normal" & blocklist == "FALSE" & cancer_db_hits == "") |>
+#  nrow()
+#[1] 102449
+#  meta_new |>
+#  filter(sample_type == "Normal" & blocklist == "FALSE") |>
+#  nrow()
+#[1] 109968
+#TODO 癌旁和normal
+Herring_file_name <- "/home/data2/Projects/Fusion/fusiondb/Herring_Supplement.tsv"
+write.table(Herring_Supplement, 
+            file = Herring_file_name, 
             sep = "\t", 
             row.names = FALSE, 
-            quote = FALSE) 
-}  
+            quote = FALSE)
+
+
+#gene annotation
+library(rtracklayer)
+#metafusion
+#meta_new <- fread("/home/data2/Projects/Fusion/fusiondb/metafusion_calls_matched.tsv", sep = "\t") will lead lose C3N-03849-03 after's -03
+cp_file_name <- "/home/data2/Projects/Fusion/unclean/gdc_split/fusion/metafusion_calls_matched.tsv"
+meta_new <- fread(cp_file_name , sep = "\t")  
+meta_new_with_commas <- meta_new |>
+                        filter(grepl(",", exon1) | grepl(",", exon2)) |>
+                        separate(col = exon1, into = c("exon1_part1", "exon1_part2"), sep = ",", remove = FALSE) |>
+                        separate(col = chr1, into = c("chr11", "chr12"), sep = ",", remove = FALSE,fill = "right") |>
+                        mutate(
+                            chr12 = ifelse(is.na(chr12), chr11, chr12),
+                            exon1_part1_start = as.integer(sub(".*:(\\d+)-.*", "\\1", exon1_part1)),  
+                            exon1_part1_end = as.integer(sub(".*-(\\d+)", "\\1", exon1_part1)),      
+                            exon1_part2_start = as.integer(sub(".*:(\\d+)-.*", "\\1", exon1_part2)),  
+                            exon1_part2_end = as.integer(sub(".*-(\\d+)", "\\1", exon1_part2))      
+                          ) |>
+                        separate(col = exon2, into = c("exon2_part1", "exon2_part2"), sep = ",", remove = FALSE) |>
+                        separate(col = chr2, into = c("chr21", "chr22"), sep = ",", remove = FALSE,fill = "right") |>
+                        mutate(
+                            chr22 = ifelse(is.na(chr22), chr21, chr22),
+                            exon2_part1_start = as.integer(sub(".*:(\\d+)-.*", "\\1", exon2_part1)),  
+                            exon2_part1_end = as.integer(sub(".*-(\\d+)", "\\1", exon2_part1)),      
+                            exon2_part2_start = as.integer(sub(".*:(\\d+)-.*", "\\1", exon2_part2)),  
+                            exon2_part2_end = as.integer(sub(".*-(\\d+)", "\\1", exon2_part2))      
+                          ) 
+meta_new_without_commas <- meta_new |>
+                        filter(!(grepl(",", exon1) | grepl(",", exon2))) |>
+                        mutate(
+                               exon1_start = as.integer(sub(".*:(\\d+)-.*", "\\1", exon1)),  
+                               exon1_end = as.integer(sub(".*-(\\d+)", "\\1", exon1)),      
+                               exon2_start = as.integer(sub(".*:(\\d+)-.*", "\\1", exon2)),  
+                               exon2_end = as.integer(sub(".*-(\\d+)", "\\1", exon2))      
+                              )
+     
+#Transcript
+Cof <- fread("/home/data2/Projects/Fusion/fusiondb/TranscriptionFactor/Homo_sapiens_Cof.txt", sep = "\t")
+TF <- fread("/home/data2/Projects/Fusion/fusiondb/TranscriptionFactor/Homo_sapiens_TF.txt", sep = "\t")
+
+refer_Homo <- fread("/home/data2/Projects/Fusion/MetaFusion/reference_files/Homo_sapiens.gene_info")
+refer1 <- refer_Homo |> 
+          select(type_of_gene,Symbol) |> 
+          dplyr::distinct()
+meta_ref_gene_name_to_type <- setNames(refer1$type_of_gene, refer1$Symbol) 
+refer2 <- refer_Homo |> 
+          select(Synonyms,type_of_gene) |> 
+          separate_rows(Synonyms, sep = "\\|") |>
+          filter(Synonyms != "-")|> 
+          dplyr::distinct()
+meta_ref_gene_name_to_type2 <- setNames(refer2$type_of_gene, refer2$Synonyms)
+
+#use refer_bed to annote gene
+refer_bed <- fread("/home/data2/Projects/Fusion/MetaFusion/reference_files/hg38_gene.bed") |>
+             mutate(V2 = as.integer(V2 + 1) ) |>
+             select(c(V1,V2,V3,V8)) 
+
+colnames(refer_bed) <- c("chr1", "exon1_start", "exon1_end", "gene_name")
+result1 <- refer_bed |>
+                dplyr::group_by(chr1, exon1_start, exon1_end) |>
+                dplyr::distinct() |>
+                dplyr::mutate(
+                  detected_name1 = ifelse(n() > 1, paste(gene_name, collapse = ","), gene_name),
+                  chr1 = as.character(chr1)
+                )  |>
+                dplyr::ungroup() |>
+                dplyr::select(-gene_name) |>
+                dplyr::distinct()
+# found gene detected region gene
+#without_commas
+colnames(result1) <- c("chr1", "exon1_start", "exon1_end", "gene1_name")
+meta_new_without_commas1 <- meta_new_without_commas |>
+                           left_join(result1 , by = c("chr1", "exon1_start", "exon1_end")) 
+
+
+colnames(result1) <- c("chr2","exon2_start", "exon2_end","gene2_name")
+meta_new_without_commas1  <- meta_new_without_commas1 |>
+                            left_join(result1 , by = c("chr2", "exon2_start", "exon2_end")) 
+
+meta_new_without_commas1  <- meta_new_without_commas1 |>
+                             select(-c("exon1_start", "exon1_end",
+                                       "exon2_start", "exon2_end"))
+
+#with_commas
+colnames(result1) <- c("chr11","exon1_part1_start", "exon1_part1_end","detected_name1_part1")
+meta_new_with_commas1  <- meta_new_with_commas |>
+                         left_join(result1 , by = c("chr11","exon1_part1_start", "exon1_part1_end"))
+
+colnames(result1) <- c("chr12","exon1_part2_start", "exon1_part2_end","detected_name1_part2")
+meta_new_with_commas1  <- meta_new_with_commas1 |>
+                         left_join(result1 , by = c("chr12","exon1_part2_start", "exon1_part2_end"))  
+
+colnames(result1) <- c("chr21", "exon2_part1_start", "exon2_part1_end","detected_name2_part1")
+meta_new_with_commas1  <- meta_new_with_commas1 |>
+                         left_join(result1 , by = c("chr21", "exon2_part1_start", "exon2_part1_end"))
+
+colnames(result1) <- c("chr22","exon2_part2_start", "exon2_part2_end","detected_name2_part2")
+meta_new_with_commas1  <- meta_new_with_commas1 |>
+                          left_join(result1 , by = c("chr22", "exon2_part2_start", "exon2_part2_end")) 
+
+meta_new_with_commas1  <- meta_new_with_commas1 |>
+                          select(-c("chr21", "exon2_part1_start", "exon2_part1_end",
+                                    "chr22", "exon2_part2_start", "exon2_part2_end",
+                                    "chr12","exon1_part2_start", "exon1_part2_end",
+                                    "exon1_part1","exon1_part2","exon2_part1","exon2_part2",
+                                    "chr11","exon1_part1_start", "exon1_part1_end")) 
+
+meta_new_with_commas1 <- meta_new_with_commas1 |>
+                                      mutate(
+                                        gene1_name = ifelse(detected_name1_part1 == detected_name1_part2, detected_name1_part1, paste(detected_name1_part1, detected_name1_part2, sep = ",")),
+                                        gene2_name = ifelse(detected_name2_part1 == detected_name2_part2, detected_name2_part1, paste(detected_name2_part1, detected_name2_part2, sep = ","))
+                                      )   
+meta_new_with_commas1 <- meta_new_with_commas1 |>
+                         select(-c(detected_name1_part1, detected_name1_part2,detected_name2_part1, detected_name2_part2 )) 
+ 
+#gene1
+
+meta_new1 <- meta_new1 |>
+  mutate(
+    gene1_type = case_when(
+      detected_name1 %in% names(gene_name_to_type) ~ gene_name_to_type[detected_name1],
+      TRUE ~ NA_character_
+    )
+  ) |>
+    mutate(
+      gene1_type = case_when(
+        is.na(gene1_type) & detected_name1 %in% names(meta_ref_gene_name_to_type) ~ meta_ref_gene_name_to_type[detected_name1],
+        TRUE ~ gene1_type  
+      )
+    ) 
+#gene2
+
+meta_new1 <- meta_new1 |>
+  mutate(
+    gene2_type = case_when(
+      detected_name2 %in% names(gene_name_to_type) ~ gene_name_to_type[detected_name2],
+      TRUE ~ NA_character_
+    )
+  ) |>
+    mutate(
+      gene2_type = case_when(
+        is.na(gene2_type) & detected_name2 %in% names(meta_ref_gene_name_to_type) ~ meta_ref_gene_name_to_type[detected_name2],
+        TRUE ~ gene2_type  
+      )
+    )
+
+
+    
+
+
+#use refer_bed to annote gene
+
+
+
