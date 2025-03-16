@@ -1,3 +1,8 @@
+# NOTE: 该脚本部分内容已在我与彦昆讨论后弃用
+# 相关内容已被拆分到 clean_tcga/cptac/target.R & gene_exon.R 等脚本中进行分解优化
+# 王诗翔，2025年3月
+
+
 library(data.table)
 library(dplyr)
 library(stringr)
@@ -44,17 +49,17 @@ matched_data2 <- TARGET_info[matched2, ]
 matched_data2 <- TARGET_info |> 
   mutate(Sample_ID_short = str_extract(Sample_ID, "^[^-]+-[^-]+-[^-]+")) |>
   filter(grepl("^TARGET-(20|00|21|30)", Sample_ID_short))
-#TODO:TARGET_info$c(Age, Sex,OS_Time, OS_Status)和TARGET_xena_info$c(Age, Sex,OS_Time, OS_Status)都非N和""的值是否重合
+
 filter_valid <- function(x) {
   !is.na(x) & x != "" & x != "--" & x != "Unknown"
 }
 # 筛选 TARGET_info 中的有效行
 TARGET_info_valid <- TARGET_info %>%
   filter(filter_valid(Age) & filter_valid(OS_Time) & filter_valid(OS_Status) & filter_valid(Sex))
-# 筛选 TARGET_xena_info 中的有效行
+# 筛选 TARGET_xena_info 中的有效行(TODO:check 都是unique(),Sample重叠)
 TARGET_xena_info_valid <- TARGET_xena_info %>%
   filter(filter_valid(Age) & filter_valid(OS_Time) & filter_valid(OS_Status) & filter_valid(Sex))
-# 2. 根据 Sample_ID 合并两个数据框
+# 2. 根据 Sample_ID 合并两个数据框(NOTE:合并空，Sample_ID未相同)
 merged_data <- TARGET_info_valid %>%
   inner_join(TARGET_xena_info_valid, by = "Sample_ID", suffix = c("_info", "_xena"))
 # 3. 检查合并后的数据框中有效值是否一致
@@ -81,7 +86,7 @@ summary <- is_consistent %>%
 #  Age_consistent Sex_consistent OS_Time_consistent OS_Status_consistent
 #  <lgl>          <lgl>          <lgl>              <lgl>               
 #1 TRUE           TRUE           TRUE               TRUE 
-## TARGET_sheet预处理
+## TARGET_sheet预处理(TODO:Sample_ID_short变量命名,TARGET复合型删除)
 matched_data3 <- TARGET_sheet |> 
   select(c(`Case ID`, `Sample ID`, `Sample Type`)) |>
   rename("Sample_ID_short" = `Case ID`,
@@ -90,7 +95,8 @@ matched_data3 <- TARGET_sheet |>
   separate_rows(c(Sample_ID, Sample_type), sep = ",\\s*")|> 
   mutate(Sample_ID_short = str_extract(Sample_ID, "^[^-]+-[^-]+-[^-]+"))|> 
   unique()
-
+#3226nrow
+#TODO数据对准
 ## 使用TARGET_sheet更新Sample_ID,(原先也只是Patient_ID复制)并添加sample_type
 
 # Step 1: 找到匹配的 Sample_ID_short
@@ -106,7 +112,7 @@ cols_to_update <- setdiff(names(matched_data2), c("Sample_ID", "Sample_ID_short"
 # Step 3: 确保 matched_data3 中存在这些列，如果不存在则创建并填充为 NA
 for (col in cols_to_update) {
   if (!col %in% names(matched_data3)) {  
-    matched_data3[[col]] <- "Unkown"  
+    matched_data3[[col]] <- "Unknown"  
   }
 }
 
@@ -141,7 +147,7 @@ matched_data4 <- matched_data4 %>%
     TRUE ~ cohort
   )) %>%
   mutate(cohort = case_when(
-    project_id %in% c("TARGET-ALL-P3", "TARGET-ALL-P1", "TARGET-ALL-P2") ~ "TARGET-ALL",
+    project_id %in% c( "TARGET-ALL-P1", "TARGET-ALL-P2") ~ "TARGET-ALL",
     TRUE ~ cohort
   )) %>%
   mutate(cohort = case_when(
@@ -214,7 +220,7 @@ detected_id_TARGET <- matched_data5$Sample_ID_short
 ##保存info
 cohorts <- unique(matched_data5$cohort)
 file_name1 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/TARGET")
-
+##TODO:race '--' 改为Unkown
 if (!dir.exists(file_name1)) {
   dir.create(file_name1, recursive = TRUE)
 } 
@@ -224,9 +230,8 @@ for (cohort1 in cohorts) {
   file_name <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/cli/TARGET/", name ,"_info.tsv")
   fwrite(cohort_data , file = file_name, sep = "\t")  
 }
-#其km时删掉这种数据？
-#TARGET-30-PAPEAV-01A, TARGET-30-PAPTFZ-01A
-##Gene
+
+##Gene(TODO:不同cohort的id重叠)
 metafusion1 <- metafusion |> 
   mutate(
     cohort = case_when(
@@ -240,7 +245,6 @@ metafusion1 <- metafusion |>
 NBL_TME <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/TARGET-NBL_TME.tsv.gz", sep = "\t") |> mutate(Project_id = "TARGET-NBL")
 AML_TME <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/TARGET-AML_TME.tsv.gz", sep = "\t") |> mutate(Project_id = "TARGET-AML")
 TARGET_TME <- rbind(NBL_TME,AML_TME)
-#TODO:实际纳入数据库的只有几个Project_ID,纳入排除
 ##由于TARGET-00-BM3897-14A-01R和TARGET-00-BM3897-14A-02R，检查这样的有多少行
 
 #suffix    <-   TARGET_TME |> 
@@ -253,13 +257,13 @@ TARGET_TME <- rbind(NBL_TME,AML_TME)
 #[1] 3166         
 #TARGET_TME|> nrow() - suffix |> nrow()
 #[1] 178
-#讨论后决定馆子取样靠后面会稳定点, 比如TARGET-00-BM3897-14A-02R和TARGET-00-BM3897-14A-01R取01R
+#讨论后决定管子取样靠后面会稳定点, 比如TARGET-00-BM3897-14A-02R和TARGET-00-BM3897-14A-01R取01R
 TARGET_TME <- TARGET_TME |>
   mutate( prefixes = str_extract(ID, ".*(?=-[^-]+$)"),  
           suffixes = str_extract(ID, "[^-]+$"),
           second_char = str_sub(suffixes, 2, 2),
           second_char = as.integer(second_char))
-
+#TODO:重合样本未拆开
 result_TME <- TARGET_TME |>
   group_by(prefixes) |>
   slice(which.max(second_char)) |>
@@ -295,11 +299,11 @@ result_TME <- result_TME |>
     Sample_ID_short %in% GNB_id ~ "TARGET-GNB",
     TRUE ~ cohort  
   )) |>
-  filter(Sample_ID_short %in% detected_id_TARGET)   #有些样本没有检出fusion
+  filter(Sample_ID_short %in% detected_id_TARGET)   #确保都在GDC-SHEET里
 
 cohorts_TME <- unique(result_TME$cohort)
 file_name3 <- paste0("/home/data2/Projects/Fusion/unclean/gdc_split/IOBR/TARGET/")
-
+#ID换位Sample_ID,PROJECT去掉
 if (!dir.exists(file_name3)) {
   dir.create(file_name3, recursive = TRUE)
 } 
@@ -376,10 +380,12 @@ for (cohort1 in cohorts_IOBR) {
 
 #CPTAC
 CPTAC_sheet <- fread("/home/data2/Projects/Fusion/GeneFusionPipelines/data_cff/CPTAC/CPTAC_gdc_sample_sheet.2023-11-15.tsv", sep = "\t")
-
+#TODO:GDC所有数据均应Sample_ID匹配cli,fusion,tme/IOBR。
+#CLI:RUN,iobr:ID,fusion:Sample_ID
+#TODO:有复合和普通样本重叠，选普通
 ##出现C3L-03262-04, C3L-03262-05和C3L-03262-01, C3L-03262-03俩行这种情况
 ##检查其", "字符俩边的是否一样，一样的话就是一个患者多个样本直接混一起了
-rows_with_comma <- grepl(", ", CPTAC_sheet$`Case ID`)
+rows_with_comma <- grepl(", ", CPTAC_sheet$`Sample ID`)
 rows_with_comma_data <- CPTAC_sheet[rows_with_comma, ]
 
 check_same_chars <- function(x) {
@@ -444,13 +450,14 @@ CPTACinfo <- CPTAC_info[matched_CPTAC_info, ] |> select(-Sample_ID)
 #matched_CPTAC |> select(Sample_ID_short) |> nrow()
 #[1] 2558    
 
-matched_ids <- intersect(CPTACinfo$Patient_ID, matched_CPTAC$Sample_ID_short)
-#setdiff(matched_CPTAC$Sample_ID_short,matched_ids)
-#character(0)
-
 matched_CPTAC <- matched_CPTAC1 |>
                 left_join(CPTACinfo, by = c("Sample_ID_short" = "Patient_ID")) |>
                 rename("Patient_ID" = "Sample_ID_short") 
+
+#matched_ids <- intersect(CPTACinfo$Patient_ID, matched_CPTAC$Sample_ID_short)
+#setdiff(matched_CPTAC$Sample_ID_short,matched_ids)
+#character(0)
+
 ##拆出CPTAC-NORMAL                 
 matched_CPTAC <- matched_CPTAC |>
   mutate(cohort = case_when(
@@ -691,8 +698,9 @@ TCGA_info <- fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/TCGA_info.tsv"
 TCGA_sheet <- fread("/home/data2/Projects/Fusion/unclean/TCGA_sample_sheet.2024-05-14.tsv", sep = "\t") |> 
               select(c(`Sample ID`, `Sample Type`,`Project ID`)) 
 colnames(TCGA_sheet) <- c("Sample_ID", "Sample_type","Project_id")
+
 TCGA_sheet <- TCGA_sheet  |>
-              mutate(Sample_ID = substr(Sample_ID, 1, nchar(Sample_ID) - 1)) |> 
+              mutate(Sample_ID = substr(Sample_ID, 1, 15)) |> 
               unique()
 
 TCGA_info <- TCGA_info |>
@@ -783,7 +791,7 @@ result_IOBR <- result_data  |>
   ungroup() |>
   rename(Sample_ID_short = prefixes) |>
   mutate(cohort = Project_id,
-         Sample_ID_short = substr(Sample_ID_short, 1, nchar(Sample_ID_short) - 1),
+         Sample_ID_short = substr(Sample_ID_short, 1, 15),
          cohort = case_when(Sample_ID_short %in% NORMAL_id ~ "TCGA-NORMAL",
                             TRUE ~ cohort)
   ) |>
@@ -873,7 +881,7 @@ for (cohort1 in cohorts_TME) {
 #metafusion_all
 combined_id <- c(NORMAL_id, target_NORMAL_id, CPTAC_NORMAL_id)
 
-meta_normal <- metafusion1|>
+meta_normal <- metafusion1 |>
                filter(Sample_ID %in% combined_id)
 #> unique(meta_normal$sample_type)
 #[1] "Normal"
@@ -912,6 +920,9 @@ write.table(meta_new,
 
 #Not in Red Herrings
 #metafusion
+#TODO:检查适合注释的行就是少，数据库来源那个？肿瘤注释和正常注释？我先找一下俩reads标准。肿瘤分析多少没被注释
+#Overlap假如分析之后，如果reads少的甩了，注释就多了，就star标明一下fusion检出可信标准，卡阈值。
+#注释源来自？
 cp_file_name <- "/home/data2/Projects/Fusion/unclean/gdc_split/fusion/metafusion_calls_matched.tsv"
 meta_new <- fread(cp_file_name , sep = "\t")
 Herring_Supplement <- meta_new |>
@@ -924,7 +935,7 @@ Herring_Supplement1 <- Herring_Supplement |>
 #[1] 102449
 Herring_Supplement2 <- Herring_Supplement |>
   filter(grepl("GTEx_recurrent_StarF2019", cancer_db_hits) |
-    grepl("DGD_PARALOGS", cancer_db_hits) |
+  grepl("DGD_PARALOGS", cancer_db_hits) |
   grepl("HGNC_GENEFAM", cancer_db_hits) |
   grepl("BodyMap", cancer_db_hits) |
   grepl("Greger_Normal", cancer_db_hits) |
@@ -934,12 +945,13 @@ Herring_Supplement2 <- Herring_Supplement |>
 #[1] 81
 Herring_Supplement3 <-  Herring_Supplement |>
   filter(!grepl("GTEx_recurrent_StarF2019", cancer_db_hits) &
-    !grepl("DGD_PARALOGS", cancer_db_hits) &
+  !grepl("DGD_PARALOGS", cancer_db_hits) &
   !grepl("HGNC_GENEFAM", cancer_db_hits) &
   !grepl("BodyMap", cancer_db_hits) &
   !grepl("Greger_Normal", cancer_db_hits) &
   !grepl("ConjoinG", cancer_db_hits) &
-  !grepl("Babiceanu_Normal", cancer_db_hits) & cancer_db_hits != "")
+  !grepl("Babiceanu_Normal", cancer_db_hits) & 
+  cancer_db_hits != "")
 #nrow(Herring_Supplement3)
 #[1] 7438
 #  meta_new |>
