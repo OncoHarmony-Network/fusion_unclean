@@ -3,7 +3,7 @@ library(dplyr)
 library(stringr)
 library(tidyr)
 
-file_meta <- "/home/data2/Projects/Fusion/fusiondb_v3/metafusion_calls_matched.tsv"
+file_meta <- "/home/data2/Projects/Fusion/fusiondb_v3/metafusion_calls_cohort_update.tsv"
 metafusion <- fread(file_meta, sep = "\t")
 
 # CPTAC
@@ -392,7 +392,7 @@ metafusion1 <- metafusion |>
     cohort = case_when(
       Sample_ID %in% matched_CPTAC_after_processing$Run  & grepl("CPTAC", cohort) ~ matched_CPTAC_after_processing$cohort[match(Sample_ID, matched_CPTAC_after_processing$Run)],
       TRUE ~ cohort
-    )
+    ) 
   )  
 
 ### In the past, the metafusion file had an issue with the sample_type being incorrectly labeled.
