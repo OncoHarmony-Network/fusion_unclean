@@ -80,11 +80,11 @@ cptac_replacement_table2 <- c(
   "CCRCC" = "CPTAC-KIRC",
   "COAD" =  "CPTAC-COAD",
   "GBM" = "CPTAC-GBM",
-  "HGSC" = "CPTAC-HGSC",
+  "HGSC" = "CPTAC-OV",
   "HNSCC" = "CPTAC-HNSC",
   "LSCC" = "CPTAC-LUSC" ,
   "LUAD" = "CPTAC-LUAD",
-  "PDAC" = "CPTAC-PDAC",
+  "PDAC" = "CPTAC-PAAD",
   "UCEC" = "CPTAC-UCEC",
   "GTEX-Brain" = "CPTAC-GTEX-Brain"
 )     
