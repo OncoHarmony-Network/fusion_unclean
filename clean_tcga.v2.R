@@ -2,14 +2,14 @@ library(data.table)
 library(dplyr)
 library(stringr)
 library(tidyr)
-file_meta <- "/home/data2/Projects/Fusion/fusiondb_v3/metafusion_calls_matched.cptac.target.tsv"
+file_meta <- "/data/data2/Projects/Fusion/fusiondb_v4/metafusion_calls_matched.cptac.target.tsv"
 metafusion <- fread(file_meta, sep = "\t")
 
 # TCGA
 ## info
-TCGA_info <- fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/TCGA_info.tsv", sep = "\t")
+TCGA_info <- fread("/data/data2/Projects/Fusion/fusiondb/Clininfo/TCGA_info.tsv", sep = "\t")
 ### TCGA_sheet pretreatment
-TCGA_sheet <- fread("/home/data2/Projects/Fusion/unclean/TCGA_sample_sheet.2024-05-14.tsv", sep = "\t") |> 
+TCGA_sheet <- fread("/data/data2/Projects/Fusion/unclean/TCGA_sample_sheet.2024-05-14.tsv", sep = "\t") |> 
               select(c(`Sample ID`, `Sample Type`,`Project ID`)) 
 
 colnames(TCGA_sheet) <- c("Sample_ID", "Sample_type","Project_id")
@@ -57,7 +57,7 @@ detected_id_TCGA <- TCGA_after_processing$Run |> unique()
 ### save info
 cohorts <- unique(TCGA_after_processing$cohort)
 
-file_name1 <- paste0("/home/data2/Projects/Fusion/fusiondb_v3/Clininfo/")
+file_name1 <- paste0("/data/data2/Projects/Fusion/fusiondb_v4/Clininfo/")
 
 for (cohort1 in cohorts) {
   cohort_data <- subset(TCGA_after_processing, cohort == cohort1)
@@ -73,11 +73,11 @@ metafusion1 <- metafusion |>
       TRUE ~ cohort
     )
   ) 
-cp_file_name1 <- "/home/data2/Projects/Fusion/fusiondb_v3/metafusion_gdc_divide.tsv"
+cp_file_name1 <- "/data/data2/Projects/Fusion/fusiondb_v4/metafusion_gdc_divide.tsv"
 fwrite(metafusion1, file = cp_file_name1, sep = "\t") 
 
 ## IOBR
-folder_path <- "/home/data2/Projects/Fusion/fusiondb/IOBR"
+folder_path <- "/data/data2/Projects/Fusion/fusiondb/IOBR"
 
 file_pattern <- "^TCGA.*_IOBR_signature.tsv.gz$"
 file_list <- list.files(path = folder_path, pattern = file_pattern, full.names = TRUE)
@@ -132,7 +132,7 @@ cohorts_IOBR <- unique(result_IOBR$cohort)
 
 for (cohort1 in cohorts_IOBR) {
   cohort_data <- subset(result_IOBR, cohort == cohort1) |> select(-c(cohort,Project_id) )
-  file_name <- paste0("/home/data2/Projects/Fusion/fusiondb_v3/IOBR/", cohort1 ,"_IOBR_signature.tsv.gz")
+  file_name <- paste0("/data/data2/Projects/Fusion/fusiondb_v4/IOBR/", cohort1 ,"_IOBR_signature.tsv.gz")
   write.table(cohort_data, 
               file = gzfile(file_name), 
               sep = "\t", 
@@ -142,7 +142,7 @@ for (cohort1 in cohorts_IOBR) {
 
 ## TME
 
-folder_path <- "/home/data2/Projects/Fusion/fusiondb/IOBR"
+folder_path <- "/data/data2/Projects/Fusion/fusiondb/IOBR"
 file_pattern <- "^TCGA.*_TME.tsv.gz$"
 file_list <- list.files(path = folder_path, pattern = file_pattern, full.names = TRUE)
 
@@ -184,7 +184,7 @@ cohorts_TME <- unique(result_TME$cohort)
 
 for (cohort1 in cohorts_TME) {
   cohort_data <- subset(result_TME, cohort == cohort1) |> select(-c(cohort,Project_id) )
-  file_name <- paste0("/home/data2/Projects/Fusion/fusiondb_v3/IOBR/", cohort1 ,"_TME.tsv.gz")
+  file_name <- paste0("/data/data2/Projects/Fusion/fusiondb_v4/IOBR/", cohort1 ,"_TME.tsv.gz")
   write.table(cohort_data, 
               file = gzfile(file_name), 
               sep = "\t", 

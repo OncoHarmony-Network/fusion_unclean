@@ -3,13 +3,13 @@ library(dplyr)
 library(stringr)
 library(tidyr)
 
-file_meta <- "/home/data2/Projects/Fusion/fusiondb_v3/metafusion_calls_matched.cptac.tsv"
+file_meta <- "/data/data2/Projects/Fusion/fusiondb_v4/metafusion_calls_matched.cptac.tsv"
 metafusion <- fread(file_meta, sep = "\t")
 
 # TARGET
 ## info
 ### Because some projects are not included in the target_sheet, we should abandon them.
-TARGET_sheet <- fread("/home/data2/Projects/Fusion/unclean/TARGET_gdc_sample_sheet.2023-11-15.tsv", sep = "\t")
+TARGET_sheet <- fread("/data/data2/Projects/Fusion/unclean/TARGET_gdc_sample_sheet.2023-11-15.tsv", sep = "\t")
 project_choose <- substr(TARGET_sheet$`Sample ID`, 1, 9) |> unique()
 project_choose
 ### "TARGET-20" "TARGET-00" "TARGET-21" "TARGET-30"
@@ -65,7 +65,7 @@ TARGET_pretreatment <- TARGET_sheet |>
 
 ### TARGET_xena_info pretreatment
 ### This data use
-TARGET_xena_info <- fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/TARGET_xena_info.tsv", sep = "\t") 
+TARGET_xena_info <- fread("/data/data2/Projects/Fusion/fusiondb/Clininfo/TARGET_xena_info.tsv", sep = "\t") 
 TARGET_xena_pretreatment   <- TARGET_xena_info |>
                               mutate(Patient_ID = str_extract(Sample_ID, "^[^-]+-[^-]+-[^-]+")) |>
                               filter(grepl("^TARGET-(20|00|21|30)", Sample_ID)) |>
@@ -78,7 +78,7 @@ TARGET_xena_pretreatment   <- TARGET_xena_info |>
 filter_lose <- function(x) {
   is.na(x) | x == "" | x == "--" | x == "Unknown" | x == "'--"
  }
-TARGET_info <- fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/TARGET_info.tsv", sep = "\t") 
+TARGET_info <- fread("/data/data2/Projects/Fusion/fusiondb/Clininfo/TARGET_info.tsv", sep = "\t") 
 replacement_table2 <- c(
   "Acute lymphocytic leukemia" =  "TARGET-ALL",             
   "'--"   = "TARGET-Unkown",                                  
@@ -326,7 +326,7 @@ cohorts <- unique(TARGET_info_after_processing$cohort)
 for (cohort1 in cohorts) {
   cohort_data <- subset(TARGET_info_after_processing, cohort == cohort1)
   name <- gsub("-", "_", cohort1)
-  file_name <- paste0("/home/data2/Projects/Fusion/fusiondb_v3/Clininfo/", name ,"_info.tsv")
+  file_name <- paste0("/data/data2/Projects/Fusion/fusiondb_v4/Clininfo/", name ,"_info.tsv")
   fwrite(cohort_data , file = file_name, sep = "\t")  
 }
 
@@ -338,12 +338,12 @@ metafusion1 <- metafusion |>
       TRUE ~ cohort
     )
   )  
-  cp_file_name1 <- "/home/data2/Projects/Fusion/fusiondb_v3/metafusion_calls_matched.cptac.target.tsv"
+  cp_file_name1 <- "/data/data2/Projects/Fusion/fusiondb_v4/metafusion_calls_matched.cptac.target.tsv"
   fwrite(metafusion1, file = cp_file_name1, sep = "\t") 
 
 ##TME
-NBL_TME <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/TARGET-NBL_TME.tsv.gz", sep = "\t") |> mutate(Project_id = "TARGET-NBL")
-AML_TME <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/TARGET-AML_TME.tsv.gz", sep = "\t") |> mutate(Project_id = "TARGET-AML")
+NBL_TME <- fread("/data/data2/Projects/Fusion/fusiondb/IOBR/TARGET-NBL_TME.tsv.gz", sep = "\t") |> mutate(Project_id = "TARGET-NBL")
+AML_TME <- fread("/data/data2/Projects/Fusion/fusiondb/IOBR/TARGET-AML_TME.tsv.gz", sep = "\t") |> mutate(Project_id = "TARGET-AML")
 TARGET_TME <- rbind(NBL_TME,AML_TME) |>
               mutate(dash_count = str_count(ID, "-"))
 ### Manually check and delete composite samples from the info dataset.(TARGET-30-PAPTFZ-01A-01R-TARGET-30-PAPEAV-01A-01R)
@@ -401,7 +401,7 @@ cohorts_TME <- unique(TARGET_TME_after_cohort$cohort)
 
 for (cohort1 in cohorts_TME) {
   cohort_data <- subset(TARGET_TME_after_cohort, cohort == cohort1) |> select(-cohort)
-  file_name <- paste0("/home/data2/Projects/Fusion/fusiondb_v3/IOBR/", cohort1 ,"_TME.tsv.gz")
+  file_name <- paste0("/data/data2/Projects/Fusion/fusiondb_v4/IOBR/", cohort1 ,"_TME.tsv.gz")
   write.table(cohort_data, 
               file = gzfile(file_name), 
               sep = "\t", 
@@ -410,8 +410,8 @@ for (cohort1 in cohorts_TME) {
 }  
 
 ## IOBR
-NBL_IOBR_signature <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/TARGET-NBL_IOBR_signature.tsv.gz", sep = "\t") |> mutate(Project_id = "TARGET-NBL")
-AML_IOBR_signature <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/TARGET-AML_IOBR_signature.tsv.gz", sep = "\t") |> mutate(Project_id = "TARGET-AML")
+NBL_IOBR_signature <- fread("/data/data2/Projects/Fusion/fusiondb/IOBR/TARGET-NBL_IOBR_signature.tsv.gz", sep = "\t") |> mutate(Project_id = "TARGET-NBL")
+AML_IOBR_signature <- fread("/data/data2/Projects/Fusion/fusiondb/IOBR/TARGET-AML_IOBR_signature.tsv.gz", sep = "\t") |> mutate(Project_id = "TARGET-AML")
 TARGET_IOBR <- rbind(NBL_IOBR_signature,AML_IOBR_signature) |>
                mutate(dash_count = str_count(ID, "-"))
 
@@ -456,7 +456,7 @@ cohorts_IOBR <- unique(TARGET_IOBR_after_cohort$cohort)
 
 for (cohort1 in cohorts_IOBR) {
   cohort_data <- subset(TARGET_IOBR_after_cohort, cohort == cohort1) |> select(-cohort)
-  file_name <- paste0("/home/data2/Projects/Fusion/fusiondb_v3/IOBR/", cohort1 ,"_IOBR_signature.tsv.gz")
+  file_name <- paste0("/data/data2/Projects/Fusion/fusiondb_v4/IOBR/", cohort1 ,"_IOBR_signature.tsv.gz")
   write.table(cohort_data, 
               file = gzfile(file_name), 
               sep = "\t", 

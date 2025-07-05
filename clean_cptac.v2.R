@@ -3,12 +3,12 @@ library(dplyr)
 library(stringr)
 library(tidyr)
 
-file_meta <- "/home/data2/Projects/Fusion/fusiondb_v3/metafusion_calls_cohort_update.tsv"
+file_meta <- "/data/data2/Projects/Fusion/fusiondb_v4/metafusion_calls.tsv"
 metafusion <- fread(file_meta, sep = "\t")
 
 # CPTAC
 ## info
-CPTAC_sheet <- fread("/home/data2/Projects/Fusion/unclean/CPTAC_gdc_sample_sheet.2023-11-15.tsv", sep = "\t")
+CPTAC_sheet <- fread("/data/data2/Projects/Fusion/unclean/CPTAC_gdc_sample_sheet.2023-11-15.tsv", sep = "\t")
 
 ### Composite Sample 
 ###
@@ -71,7 +71,7 @@ matched_CPTAC_pretreatment <- CPTAC_sheet |>
   unique() 
 
 ### CPTAC_info pretreatment
-CPTAC_info <- fread("/home/data2/Projects/Fusion/fusiondb/Clininfo/CPTAC_info.tsv", sep = "\t")
+CPTAC_info <- fread("/data/data2/Projects/Fusion/fusiondb/Clininfo/CPTAC_info.tsv", sep = "\t")
 # > CPTAC_info$Cancer |> unique()
 # [1] "BRCA"       "CCRCC"      "COAD"       "GBM"        "HGSC"       "HNSCC"      "LSCC"       "LUAD"       "PDAC"       "UCEC"       "GTEX-Brain"
 ### We use our naming standard mutate a new column cohort.
@@ -132,13 +132,13 @@ cohorts <- unique(matched_CPTAC_after_processing$cohort)
 for (cohort1 in cohorts) {
   cohort_data <- subset(matched_CPTAC_after_processing, cohort == cohort1)
   name <- gsub("-", "_", cohort1)
-  file_name <- paste0("/home/data2/Projects/Fusion/fusiondb_v3/Clininfo/", name ,"_info.tsv")
+  file_name <- paste0("/data/data2/Projects/Fusion/fusiondb_v4/Clininfo/", name ,"_info.tsv")
   fwrite(cohort_data , file = file_name, sep = "\t")  
 }
 
 ## TME
-CPTAC2_TME <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/CPTAC-2_TME.tsv.gz", sep = "\t") |> mutate(Project_id = "CPTAC2")
-CPTAC3_TME <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/CPTAC-3_TME.tsv.gz", sep = "\t") |> mutate(Project_id = "CPTAC3")
+CPTAC2_TME <- fread("/data/data2/Projects/Fusion/fusiondb/IOBR/CPTAC-2_TME.tsv.gz", sep = "\t") |> mutate(Project_id = "CPTAC2")
+CPTAC3_TME <- fread("/data/data2/Projects/Fusion/fusiondb/IOBR/CPTAC-3_TME.tsv.gz", sep = "\t") |> mutate(Project_id = "CPTAC3")
 CPTAC_TME <- rbind(CPTAC2_TME, CPTAC3_TME)
 
 ### Match matched_CPTAC_after_processing$Run to CPTAC_TME$ID
@@ -254,7 +254,7 @@ cohorts_TME <- unique(matched_can$cohort)
 
 for (cohort1 in cohorts_TME) {
   cohort_data <- subset(matched_can, cohort == cohort1) |> select(-cohort)
-  file_name <- paste0("/home/data2/Projects/Fusion/fusiondb_v3/IOBR/", cohort1 ,"_TME.tsv.gz")
+  file_name <- paste0("/data/data2/Projects/Fusion/fusiondb_v4/IOBR/", cohort1 ,"_TME.tsv.gz")
   write.table(cohort_data, 
               file = gzfile(file_name), 
               sep = "\t", 
@@ -263,8 +263,8 @@ for (cohort1 in cohorts_TME) {
 }  
 
 #IOBR
-CPTAC2_Signature <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/CPTAC-2_IOBR_signature.tsv.gz", sep = "\t") |> mutate(Project_id = "CPTAC2")
-CPTAC3_Signature <- fread("/home/data2/Projects/Fusion/fusiondb/IOBR/CPTAC-3_IOBR_signature.tsv.gz", sep = "\t") |> mutate(Project_id = "CPTAC3")
+CPTAC2_Signature <- fread("/data/data2/Projects/Fusion/fusiondb/IOBR/CPTAC-2_IOBR_signature.tsv.gz", sep = "\t") |> mutate(Project_id = "CPTAC2")
+CPTAC3_Signature <- fread("/data/data2/Projects/Fusion/fusiondb/IOBR/CPTAC-3_IOBR_signature.tsv.gz", sep = "\t") |> mutate(Project_id = "CPTAC3")
 CPTAC_Signature <- rbind(CPTAC2_Signature, CPTAC3_Signature)
 
 ### Match matched_CPTAC_after_processing$Run to CPTAC_TME$ID
@@ -377,7 +377,7 @@ cohorts_IOBR <- unique(matched_can$cohort)
 
 for (cohort1 in cohorts_IOBR) {
   cohort_data <- subset(matched_can, cohort == cohort1) |> select(-cohort)
-  file_name <- paste0("/home/data2/Projects/Fusion/fusiondb_v3/IOBR/", cohort1 ,"_IOBR_signature.tsv.gz")
+  file_name <- paste0("/data/data2/Projects/Fusion/fusiondb_v4/IOBR/", cohort1 ,"_IOBR_signature.tsv.gz")
   write.table(cohort_data, 
               file = gzfile(file_name), 
               sep = "\t", 
@@ -419,7 +419,7 @@ meta_processing  <- metafusion1 |>
                       )
                     )
 
-cp_file_name1 <- "/home/data2/Projects/Fusion/fusiondb_v3/metafusion_calls_matched.cptac.tsv"
+cp_file_name1 <- "/data/data2/Projects/Fusion/fusiondb_v4/metafusion_calls_matched.cptac.tsv"
 fwrite(meta_processing, file = cp_file_name1, sep = "\t") 
 
 
