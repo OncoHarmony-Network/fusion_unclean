@@ -176,3 +176,43 @@ data.table::fwrite(final_cluster_dt3, file = "/data/data2/Projects/Fusion/fusion
 #   dplyr::group_by(cohort, inferred_fusion_type, sample_type) |>
 #   write_dataset(file.path("/home/data/Fusion/fusiondb_v4", "fusion_calls_arrow"), format = "arrow")
 
+
+
+# Fullfill unmatched samples -----------------------------------------------
+# https://gitea.zhoulab.ac.cn/OncoHarmony-Network/GeneFusionIO/issues/93
+pro_cohorts = c("PRJEB23709", "PRJEB25780", "PRJNA356761") # "PRJNA498500" (SRR8112658)
+for (i in pro_cohorts) {
+  message(i)
+  info = fread(
+    glue::glue("/data/data2/Projects/Fusion/fusiondb_v4/Clininfo/{i}_info.tsv")
+  )
+  iobr = fread(
+    glue::glue("/data/data2/Projects/Fusion/fusiondb_v4/IOBR/{i}_TME.tsv.gz")
+  )
+  # iobr2 = fread(
+  #   glue::glue("/data/data2/Projects/Fusion/fusiondb/IOBR/{i}_TME.tsv.gz")
+  # )
+  deal_samples = iobr$ID[!iobr$ID %in% info$Run]
+  if (length(deal_samples) > 1) {
+    # PRJEB23709 IOBR 出现了重复 "ERR2208912.1" "ERR2208913.1"
+    message("unmatched samples detected")
+    print(deal_samples)
+    deal_samples = setdiff(deal_samples, c("ERR2208912.1", "ERR2208913.1"))
+    # back up
+    file.copy(glue::glue("/data/data2/Projects/Fusion/fusiondb_v4/Clininfo/{i}_info.tsv"),
+              glue::glue("/data/data2/Projects/Fusion/fusiondb_v4/Clininfo/{i}_info.tsv.bk"))
+    # create new one
+    info2 = info |> dplyr::add_row(
+      Patient_ID = deal_samples,
+      Sample_ID = deal_samples,
+      Run = deal_samples
+    )
+    message("updating file")
+    data.table::fwrite(
+      info2,
+      glue::glue("/data/data2/Projects/Fusion/fusiondb_v4/Clininfo/{i}_info.tsv"),
+      sep = "\t")
+
+  }
+}
+
