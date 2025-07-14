@@ -161,22 +161,6 @@ final_cluster_dt3 = final_cluster_dt2 |>
 
 data.table::fwrite(final_cluster_dt3, file = "/data/data2/Projects/Fusion/fusiondb_v4/metafusion_calls.tsv", sep = "\t")
 
-# Generating data for database app ---------------------------------------------
-# TODO: 等彦昆更新一个 score 的 calls 版本再切分存储
-
-# system("rm -rf /home/data/Fusion/fusiondb_v4/fusion_calls_arrow")
-# library(arrow)
-# calls = data.table::fread("/data/data2/Projects/Fusion/fusiondb_v4/metafusion_calls.tsv")
-#
-# table(calls$cohort)
-# table(calls$tools)
-# table(calls$sample_type)
-#
-# calls |>
-#   dplyr::group_by(cohort, inferred_fusion_type, sample_type) |>
-#   write_dataset(file.path("/home/data/Fusion/fusiondb_v4", "fusion_calls_arrow"), format = "arrow")
-
-
 
 # Fullfill unmatched samples -----------------------------------------------
 # https://gitea.zhoulab.ac.cn/OncoHarmony-Network/GeneFusionIO/issues/93
@@ -216,3 +200,18 @@ for (i in pro_cohorts) {
   }
 }
 
+
+# Generating data for database app ---------------------------------------------
+# TODO: 等彦昆更新一个 score 的 calls 版本再切分存储
+
+system("rm -rf /home/data/Fusion/fusiondb_v4/fusion_calls_arrow")
+library(arrow)
+calls = data.table::fread("/data/data2/Projects/Fusion/fusiondb_v4/metafusion_calls.star.tsv")
+
+table(calls$cohort)
+table(calls$tools)
+table(calls$sample_type)
+
+calls |>
+  dplyr::group_by(cohort, inferred_fusion_type, sample_type) |>
+  write_dataset(file.path("/data/data2/Projects/Fusion/fusiondb_v4", "fusion_calls_arrow"), format = "arrow")

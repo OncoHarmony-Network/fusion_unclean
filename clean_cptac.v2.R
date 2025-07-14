@@ -389,6 +389,10 @@ for (cohort1 in cohorts_IOBR) {
 
 metafusion1 <- metafusion |> 
   mutate(
+    Sample_ID = case_when(
+      cohort == "CPTAC-3" & grepl("_", Sample_ID) ~  str_replace_all(Sample_ID, "_", "-"),
+      TRUE ~ Sample_ID 
+    ),
     cohort = case_when(
       Sample_ID %in% matched_CPTAC_after_processing$Run  & grepl("CPTAC", cohort) ~ matched_CPTAC_after_processing$cohort[match(Sample_ID, matched_CPTAC_after_processing$Run)],
       TRUE ~ cohort
