@@ -89,7 +89,7 @@ mutate(
 )
 
 match_type <- c(
-  "AL357556.3" = "protein-coding",
+  "AL357556.3" = "lncRNA",
   "Y_RNA" = "misc_RNA",
   "PDCD6-AHRR"= "ncRNA",
   "AHI1-DT"= "lncRNA",
@@ -275,10 +275,10 @@ match_type <- c(
   "MIR9-2HG"= "lncRNA", 
   "SGSM3-AS1"= "lncRNA", 
   "RABGAP1L-AS1"= "lncRNA",
-  "UNQ6494"     = "protein-coding",
+  "UNQ6494"     = "lncRNA",
   "FLJ42969"   = "lncRNA",
   "FLJ31356"   = "ncRNA",
-  "Metazoa_SRP" = "protein-coding",
+  "Metazoa_SRP" = "misc_RNA",
   "AC000050.2" = "lncRNA", 
   "AC007461.1"  = "lncRNA",
   "AC020765.6" = "protein_coding", 
@@ -594,6 +594,8 @@ match_type <- c(
 "TBCEL-TECTA" = "protein_coding",
 "FAM246C" = "protein_coding"
 )
+
+
 match_df <- data.frame(
   gene_name = names(match_type),
   gene_type = match_type,

@@ -202,7 +202,6 @@ for (i in pro_cohorts) {
 
 
 # Generating data for database app ---------------------------------------------
-# TODO: 等彦昆更新一个 score 的 calls 版本再切分存储
 
 system("rm -rf /home/data/Fusion/fusiondb_v4/fusion_calls_arrow")
 library(arrow)
