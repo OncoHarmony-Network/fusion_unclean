@@ -13,7 +13,6 @@ TCGA_sheet <- fread("/data/data2/Projects/Fusion/unclean/TCGA_sample_sheet.2024-
               select(c(`Sample ID`, `Sample Type`,`Project ID`))
 
 colnames(TCGA_sheet) <- c("Sample_ID", "Sample_type","Project_id")
-TCGA_sheet$Sample_type |> colnames()
 TCGA_sheet_pretreatment <- TCGA_sheet  |>
                            mutate(Sample_ID = substr(Sample_ID, 1, 15)) |>
                            unique()

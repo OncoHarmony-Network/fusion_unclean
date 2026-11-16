@@ -282,10 +282,12 @@ cell_info2 <- TARGET_xena_pretreatment[TARGET_xena_pretreatment$Patient_ID %in% 
 ### nrow(cell_info2)
 ### [1] 0
 
+### "Next Generation Cancer Model" (NGCM) are next-generation cell culture models (organoids, CRC, optimal growth condition models; https://ccgdata.cancer.gov/programs/hcmi/research).
+### Like Cell Lines, they are in vitro models with no clinical info (Age/OS all empty), so they are grouped into TARGET-CELL as well.
 TARGET_info_after_cell <- TARGET_correct_after_pro |>
   mutate(cohort = case_when(
-    `Sample_type` %in% "Cell Lines" ~ "TARGET-CELL",
-    TRUE ~ cohort  
+    `Sample_type` %in% c("Cell Lines", "Next Generation Cancer Model") ~ "TARGET-CELL",
+    TRUE ~ cohort
   ))
 
 ### The criteria for distinguishing normal samples based on Sample_type column in the TARGET databases are as follows:
@@ -342,7 +344,6 @@ metafusion1 <- metafusion |>
         TARGET_info_after_processing$Sample_type[match(Sample_ID, TARGET_info_after_processing$Run)],
       TRUE ~ sample_type 
     ),
-    ,
     sample_type = case_when(
       sample_type %in% c("Bone Marrow Normal") ~ "Normal",
       sample_type %in% c("Blood Derived Normal") ~ "Normal_Blood",
