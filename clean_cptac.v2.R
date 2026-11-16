@@ -417,8 +417,8 @@ unique(meta_normal$sample_type)
 meta_processing  <- metafusion1 |>
                     mutate(
                       sample_type = ifelse(
-                        sample_type != "Normal" & Sample_ID %in% normal_id,
-                        "Normal",
+                        Sample_ID %in% normal_id,
+                        "Normal_Adjacent",
                         sample_type
                       )
                     )

@@ -8,13 +8,10 @@ file_meta <- "/data/data2/Projects/Fusion/fusiondb_v4/metafusion_gdc_divide.tsv"
 metafusion <- fread(file_meta , sep = "\t")
 cohort1 <- fread("/data/data2/Projects/Fusion/fusiondb_v4/cohorts_meta.csv")
 # Stratification Strategy
-## Tumor data
-### 1. Assign a column num_cohorts based on the number of distinct cohorts corresponding to each disease, +1 score; 
-### When num_cohorts > 1, there should be at least one disease that corresponds to at least two different cohorts, and each of these cohorts must have at least one sample_id that has detected the same fusion value, +1 score; 
-### When num_cohorts == 1, there must be at least two different sample_ids within the same cohort that have detected the same fusion value, +1 score;
-### 2. If one fusion event's max_split_cnt and max_span_cnt are both greater than or equal to 1, +1 score;
-### 3. If Arriba and STAR-Fusion detected identical fusion event, +1 score; 
-### 4. score >= 3 , high confident fusion, else low confident fusion
+## 1. For tumor samples, if there are at least two samples within the total cohorts of a disease that have detected the same fusion value, +1 score.
+## 2. If one fusion event's max_split_cnt and max_span_cnt are both greater than or equal to 1, +1 score;
+## 3. If Arriba and STAR-Fusion detected identical fusion event, +1 score; 
+## 4. score >= 2 , high confident fusion, else low confident fusion
 Tumor_data <-  metafusion  |>
   filter(!(gene1 %in% c("IGH@-ext", "IGL@-ext", "IGL-@-ext", "IGH-@-ext") | 
            gene2 %in% c("IGH@-ext", "IGL@-ext", "IGL-@-ext", "IGH-@-ext"))) |> 
@@ -31,20 +28,20 @@ Tumor_data <-  metafusion  |>
                 disease = case_when(
                   disease %in% c("LUSC", "LUAD") ~ "NSCLC",
                   TRUE ~ disease
-                ),
+                )
               ) 
 
 ### 1. frequence
 Tumor_data1 <- Tumor_data %>%
   group_by(disease, fusion) %>%
   mutate(Score = case_when(  
-    sample_type %in% c("Tumor", "Blood") & n_distinct(Sample_ID) >= 2 ~ Score + 1,
+    sample_type %in% c("Tumor", "Tumor_Blood","Tumor_Cell" ) & n_distinct(Sample_ID) >= 2 ~ Score + 1,
+    sample_type %in% c("Normal", "Normal_Blood","Normal_Adjacent" ) & n_distinct(Sample_ID) >= 2 ~ Score + 1,
     TRUE ~ Score)
   ) %>%
   ungroup() 
 
 ###  2. Reads counts
-
 Tumor_data2 <- Tumor_data1 %>%
   mutate(
     Score = case_when(
@@ -54,7 +51,6 @@ Tumor_data2 <- Tumor_data1 %>%
   )
 
 ###  3. Tools detected
-
 Tumor_data3 <- Tumor_data2 %>%
     mutate(
       Score = case_when(
@@ -62,7 +58,9 @@ Tumor_data3 <- Tumor_data2 %>%
            TRUE ~ Score)
           )
 
-#gene type
+
+# Annotate Strategy
+## Annotate the gene types of the 5' gene and 3' gene based on the /gencode.v34.annotation.gtf file
 gtf = fread("/data/data2/reference/hg38_ek12/gencode.v34.annotation.gtf")
 extract_col <- function(x, name) {
   library(magrittr)
@@ -88,6 +86,7 @@ mutate(
   gene_name = str_replace(gene_name, '";$', '')
 )
 
+## Annotate the gene types of the 5' gene and 3' gene based on the ucsc genome browser and genecards
 match_type <- c(
   "AL357556.3" = "lncRNA",
   "Y_RNA" = "misc_RNA",
@@ -628,7 +627,7 @@ gene2_nc <- fusion_distribution |> filter(is.na(gene2_type))  |> select(gene2) |
 gene1_nc <- fusion_distribution |> filter(is.na(gene1_type)) |> select(gene1) |> unique()
 nc <- c(gene1_nc$gene1, gene2_nc$gene2)  |> unique()
 nc 
-### New metafusion
+# New metafusion
 metafusion_new <- fusion_distribution  |>  
                   select(-c(disease,fusion)) 
               

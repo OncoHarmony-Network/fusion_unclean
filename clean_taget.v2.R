@@ -336,8 +336,24 @@ metafusion1 <- metafusion |>
     cohort = case_when(
       Sample_ID %in% TARGET_info_after_processing$Run & grepl("TARGET", cohort) ~ TARGET_info_after_processing$cohort[match(Sample_ID, TARGET_info_after_processing$Run)],
       TRUE ~ cohort
+    ),
+    sample_type = case_when(
+      Sample_ID %in% TARGET_info_after_processing$Run ~ 
+        TARGET_info_after_processing$Sample_type[match(Sample_ID, TARGET_info_after_processing$Run)],
+      TRUE ~ sample_type 
+    ),
+    ,
+    sample_type = case_when(
+      sample_type %in% c("Bone Marrow Normal") ~ "Normal",
+      sample_type %in% c("Blood Derived Normal") ~ "Normal_Blood",
+      grepl("Bone Marrow", sample_type) & grepl("Cancer|Post-treatment", sample_type) ~ "Tumor",
+      grepl("Peripheral Blood|Blood Derived Cancer", sample_type) & grepl("Cancer|Post-treatment", sample_type)  ~ "Tumor_Blood",
+      sample_type == "Blood" ~ "Tumor_Blood",
+      sample_type %in% c("Primary Tumor", "Recurrent Tumor") ~ "Tumor",
+      sample_type %in% c("Cell Lines", "Next Generation Cancer Model") ~ "Tumor_Cell",
+      TRUE ~ sample_type
     )
-  )  
+    ) 
   cp_file_name1 <- "/data/data2/Projects/Fusion/fusiondb_v4/metafusion_calls_matched.cptac.target.tsv"
   fwrite(metafusion1, file = cp_file_name1, sep = "\t") 
 

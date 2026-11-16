@@ -13,7 +13,7 @@ TCGA_sheet <- fread("/data/data2/Projects/Fusion/unclean/TCGA_sample_sheet.2024-
               select(c(`Sample ID`, `Sample Type`,`Project ID`))
 
 colnames(TCGA_sheet) <- c("Sample_ID", "Sample_type","Project_id")
-
+TCGA_sheet$Sample_type |> colnames()
 TCGA_sheet_pretreatment <- TCGA_sheet  |>
                            mutate(Sample_ID = substr(Sample_ID, 1, 15)) |>
                            unique()
@@ -37,6 +37,11 @@ TCGA_NORMAL <- TCGA_after_processing |>
                filter(Sample_type == "Solid Tissue Normal")
 
 NORMAL_id <- TCGA_NORMAL$Run |> unique()
+
+TCGA_BLOOD <- TCGA_after_processing |>
+               filter(Sample_type == "Primary Blood Derived Cancer - Peripheral Blood")
+
+BLOOD_id <- TCGA_BLOOD$Run |> unique()
 
 TCGA_after_processing <- TCGA_after_processing |>
   mutate(
@@ -66,13 +71,19 @@ for (cohort1 in cohorts) {
   fwrite(cohort_data , file = file_name, sep = "\t")
 }
 ## Gene
+
 metafusion1 <- metafusion |>
   mutate(
     cohort = case_when(
       Sample_ID %in% TCGA_after_processing$Run & grepl("TCGA", cohort) ~ TCGA_after_processing$cohort[match(Sample_ID, TCGA_after_processing$Run)],
       TRUE ~ cohort
-    )
-  )
+    ),
+    sample_type = case_when(
+      Sample_ID %in% NORMAL_id ~ "Normal_Adjacent",
+      Sample_ID %in% BLOOD_id  ~ "Tumor_Blood" ,
+      TRUE ~ sample_type
+    ))
+  
 cp_file_name1 <- "/data/data2/Projects/Fusion/fusiondb_v4/metafusion_gdc_divide.tsv"
 fwrite(metafusion1, file = cp_file_name1, sep = "\t")
 
