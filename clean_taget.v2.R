@@ -351,7 +351,7 @@ metafusion1 <- metafusion |>
       grepl("Peripheral Blood|Blood Derived Cancer", sample_type) & grepl("Cancer|Post-treatment", sample_type)  ~ "Tumor_Blood",
       sample_type == "Blood" ~ "Tumor_Blood",
       sample_type %in% c("Primary Tumor", "Recurrent Tumor") ~ "Tumor",
-      sample_type %in% c("Cell Lines", "Next Generation Cancer Model") ~ "Tumor_Cell",
+      sample_type %in% c("Cell Lines", "Next Generation Cancer Model") ~ "Cell_Model",
       TRUE ~ sample_type
     )
     ) 

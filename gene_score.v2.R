@@ -34,8 +34,9 @@ Tumor_data <-  metafusion  |>
 ### 1. frequence
 Tumor_data1 <- Tumor_data %>%
   group_by(disease, fusion) %>%
-  mutate(Score = case_when(  
-    sample_type %in% c("Tumor", "Tumor_Blood","Tumor_Cell" ) & n_distinct(Sample_ID) >= 2 ~ Score + 1,
+  mutate(Score = case_when(
+    # Cell_Model is the current label; Tumor_Cell is kept for legacy inputs.
+    sample_type %in% c("Tumor", "Tumor_Blood", "Tumor_Cell", "Cell_Model") & n_distinct(Sample_ID) >= 2 ~ Score + 1,
     sample_type %in% c("Normal", "Normal_Blood","Normal_Adjacent" ) & n_distinct(Sample_ID) >= 2 ~ Score + 1,
     TRUE ~ Score)
   ) %>%
